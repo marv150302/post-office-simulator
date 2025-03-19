@@ -1,4 +1,5 @@
 #include "config.h"
+#include "erogatore_ticket.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
@@ -7,16 +8,7 @@
 #include <unistd.h>
 #include <time.h>
 
-// Define message structure for requests and responses
-typedef struct {
-    long msg_type; // Service type requested
-} TicketRequest;
 
-typedef struct {
-    long msg_type;
-    int ticket_number;
-    int estimated_time;
-} TicketMessage;
 
 int main() {
     srand(time(NULL));

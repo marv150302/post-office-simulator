@@ -8,8 +8,8 @@
 #include <sys/shm.h>
 #include <sys/msg.h>
 
-// number of services
-#define NUM_SERVICES 6
+#define NUM_SERVICES 6 // number of services provided
+#define MAX_SPORTELLI 10 // maximum number of counters
 
 // service types
 enum ServiceType {
@@ -21,22 +21,30 @@ enum ServiceType {
     SERVICE_JEWELRY = 5              // Acquisto orologi e braccialetti
 };
 
-// Average service processing times (minutes)
+// average service processing times (minutes)
 extern const int SERVICE_TIME[NUM_SERVICES];
 
-// Structure to store ticket system in shared memory
+
+// structure to store ticket system in shared memory
 typedef struct {
     int ticket_number[NUM_SERVICES];  // Ticket counters per service
 } TicketSystem;
 
-// Structure for user queue
+// structure for user queue
 typedef struct {
     int ticket_queue[NUM_SERVICES][50]; // Queue for each service (max 50 users per service)
     int queue_size[NUM_SERVICES]; // Number of users waiting per service
 } WaitingQueue;
 
-#define SHM_KEY 1234  // Shared Memory Key
-#define MSG_KEY 5678  // Message Queue Key
+
+
+#define SHM_KEY 1234  // shared Memory Key
+#define MSG_KEY 5678  // message Queue Key
+
+
+#define QUEUE_SHM_KEY 6789 // shared memory key for waiting queue
+#define SEM_KEY 7890  // semaphore key
+
 
 // Default values (used only if config file is missing)
 #define DEFAULT_NOF_WORKERS 5
@@ -48,7 +56,7 @@ typedef struct {
 #define DEFAULT_P_SERV_MAX 0.8
 #define DEFAULT_EXPLODE_THRESHOLD 50
 
-// Global variables (will be set by `load_config()`)
+// (will be set by `load_config()`)
 extern int NOF_WORKERS;
 extern int NOF_USERS;
 extern int NOF_WORKER_SEATS;
@@ -58,7 +66,6 @@ extern int EXPLODE_THRESHOLD;
 extern double P_SERV_MIN;
 extern double P_SERV_MAX;
 
-// Function prototype
 void load_config(const char *filename);
 
 #endif // CONFIG_H
