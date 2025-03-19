@@ -9,6 +9,7 @@ int N_NANO_SECS = DEFAULT_N_NANO_SECS;
 int EXPLODE_THRESHOLD = DEFAULT_EXPLODE_THRESHOLD;
 double P_SERV_MIN = DEFAULT_P_SERV_MIN;
 double P_SERV_MAX = DEFAULT_P_SERV_MAX;
+const int SERVICE_TIME[NUM_SERVICES] = {10, 8, 6, 8, 20, 20};
 
 void load_config(const char *filename) {
     FILE *file = fopen(filename, "r");
@@ -49,6 +50,7 @@ void load_config(const char *filename) {
 
     fclose(file);
 }
+
 
 
 

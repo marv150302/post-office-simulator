@@ -22,12 +22,18 @@ enum ServiceType {
 };
 
 // Average service processing times (minutes)
-const int SERVICE_TIME[NUM_SERVICES] = {10, 8, 6, 8, 20, 20};
+extern const int SERVICE_TIME[NUM_SERVICES];
 
 // Structure to store ticket system in shared memory
 typedef struct {
     int ticket_number[NUM_SERVICES];  // Ticket counters per service
 } TicketSystem;
+
+// Structure for user queue
+typedef struct {
+    int ticket_queue[NUM_SERVICES][50]; // Queue for each service (max 50 users per service)
+    int queue_size[NUM_SERVICES]; // Number of users waiting per service
+} WaitingQueue;
 
 #define SHM_KEY 1234  // Shared Memory Key
 #define MSG_KEY 5678  // Message Queue Key
