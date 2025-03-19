@@ -1,4 +1,5 @@
 #include "config.h"
+#include "sportello.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
@@ -21,6 +22,38 @@ int main() {
         perror("Shared memory attach failed");
         exit(EXIT_FAILURE);
     }
+
+    // attach to sportello shared memory
+    int shmid_sportello = shmget(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), 0666);
+    if (shmid_sportello == -1) {
+        perror("Shared memory access failed (Sportello)");
+        exit(EXIT_FAILURE);
+    }
+    SportelloStatus *sportello = (SportelloStatus *)shmat(shmid_sportello, NULL, 0);
+    if (sportello == (void *)-1) {
+        perror("Shared memory attach failed (Sportello)");
+        exit(EXIT_FAILURE);
+    }
+
+
+    int assigned_service = -1;
+    int assigned_sportello = -1;
+
+    // find a free counter with a matching service
+    for (int i = 0; i < MAX_SPORTELLI; i++) {
+        if (sportello->available[i] == 1 && sportello->service_type[i] == assigned_service) {
+            assigned_sportello = i;
+            sportello->available[i] = 0;  // mark the counter as occupied
+            sportello->assigned_operator[i] = getpid();  // assign an operator to the counter
+            break;
+        }
+    }
+
+    if (assigned_sportello == -1) {
+        printf("[Operatore %d] No available sportello for service %d. Exiting...\n", getpid(), assigned_service);
+        exit(1);
+    }
+
 
     printf("[Operatore %d] Ready to serve customers...\n", getpid());
 
@@ -47,6 +80,8 @@ int main() {
             sleep(service_time);
 
             printf("[Operatore %d] Finished serving ticket %d\n", getpid(), ticket);
+            printf("[Operatore %d] Finished serving ticket %d at sportello %d.\n", getpid(), ticket, assigned_sportello);
+            sportello->available[assigned_sportello] = 1;  // Free the sportello
         }
 
         sleep(1);  // wait before checking in, so we prevent the cpu from working too much
