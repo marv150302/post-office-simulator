@@ -12,6 +12,9 @@ typedef struct {
     int service_type[MAX_SPORTELLI]; // Each counter is assigned to a specific service
     int available[MAX_SPORTELLI];    // 1 = available, 0 = occupied
     int assigned_operator[MAX_SPORTELLI];
+    int sportelli_ready; //flag to indicate if the counter is ready
+    int operatori_ready; //flag to indicate if the operator is ready at the counter
+
 } SportelloStatus;
 
 #endif //SPORTELLO_H

@@ -1,5 +1,6 @@
 #include "config.h"
 #include "sportello.h"
+#include "memory_handler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
@@ -11,43 +12,38 @@ int main() {
 
     srand(time(NULL) ^ getpid());
 
-    // Attach to the shared queue memory
-    int shmid = shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666);
-    if (shmid == -1) {
-        perror("Shared memory access failed");
-        exit(EXIT_FAILURE);
-    }
-    WaitingQueue *queue = (WaitingQueue *)shmat(shmid, NULL, 0);
-    if (queue == (void *)-1) {
-        perror("Shared memory attach failed");
-        exit(EXIT_FAILURE);
-    }
+   // Create and attach Sportello shared memory
+    int shmid_sportello = create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
+    SportelloStatus *sportello = (SportelloStatus *)attach_shared_memory(shmid_sportello, "Sportello");
 
-    // attach to sportello shared memory
-    int shmid_sportello = shmget(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), 0666);
-    if (shmid_sportello == -1) {
-        perror("Shared memory access failed (Sportello)");
-        exit(EXIT_FAILURE);
-    }
-    SportelloStatus *sportello = (SportelloStatus *)shmat(shmid_sportello, NULL, 0);
-    if (sportello == (void *)-1) {
-        perror("Shared memory attach failed (Sportello)");
-        exit(EXIT_FAILURE);
-    }
+    //create and attach waiting queue shared memory
+    int shmid_queue = create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "WaitingQueue");
+    WaitingQueue *queue = (WaitingQueue *)attach_shared_memory(shmid_queue, "WaitingQueue");
 
 
     int assigned_service = -1;
     int assigned_sportello = -1;
 
-    // find a free counter with a matching service
-    for (int i = 0; i < MAX_SPORTELLI; i++) {
-        if (sportello->available[i] == 1 && sportello->service_type[i] == assigned_service) {
+    // find a free counter
+    while (assigned_sportello == -1) {
+    printf("[Operatore %d] Waiting for an available sportello...\n", getpid());
+    sleep(1);  // Wait and retry
+
+    for (int i = 0; i < NOF_WORKER_SEATS; i++) {
+        if (sportello->available[i] == 1 && sportello->assigned_operator[i] == -1) {
+            sportello->available[i] = 0;
+            sportello->assigned_operator[i] = getpid();
             assigned_sportello = i;
-            sportello->available[i] = 0;  // mark the counter as occupied
-            sportello->assigned_operator[i] = getpid();  // assign an operator to the counter
+            printf("[Operatore %d] Assigned to sportello %d.\n", getpid(), assigned_sportello);
             break;
         }
     }
+	}
+    // Debugging print to see sportelli assignments
+	printf("[DEBUG] Sportello assignments before operator starts:\n");
+	for (int i = 0; i < MAX_SPORTELLI; i++) {
+    	printf("Sportello %d -> Assigned Operator: %d\n", i, sportello->assigned_operator[i]);
+	}
 
     if (assigned_sportello == -1) {
         printf("[Operatore %d] No available sportello for service %d. Exiting...\n", getpid(), assigned_service);
@@ -57,6 +53,18 @@ int main() {
 
     printf("[Operatore %d] Ready to serve customers...\n", getpid());
 
+    int assigned_count = 0;
+    for (int i = 0; i < MAX_SPORTELLI; i++) {
+        if (sportello->assigned_operator[i] != -1) {
+            assigned_count++;
+        }
+    }
+
+    printf("assigned count is %d\n", assigned_count);
+    if (assigned_count == NOF_WORKERS) {
+      	printf("operatore assigned");
+        sportello->operatori_ready = 1;
+    }
     while (1) {
         int service_type = rand() % NUM_SERVICES;  // randomly choose a service to check
 

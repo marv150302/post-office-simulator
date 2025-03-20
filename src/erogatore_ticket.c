@@ -1,5 +1,6 @@
 #include "config.h"
 #include "erogatore_ticket.h"
+#include "memory_handler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
@@ -13,18 +14,12 @@
 int main() {
     srand(time(NULL));
 
-    // Create shared memory for ticket counters
-    int shmid = shmget(SHM_KEY, sizeof(TicketSystem), IPC_CREAT | 0666);
-    if (shmid == -1) {
-        perror("Shared memory creation failed");
-        exit(EXIT_FAILURE);
-    }
+    //create and attach shared memory for ticket system
+    int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+    TicketSystem *tickets = (TicketSystem *)attach_shared_memory(shmid_erogatore, "Erogatore");
 
-    TicketSystem *tickets = (TicketSystem *)shmat(shmid, NULL, 0);
-    if (tickets == (void *)-1) {
-        perror("Shared memory attach failed");
-        exit(EXIT_FAILURE);
-    }
+
+
 
     for (int i = 0; i < NUM_SERVICES; i++) {
         tickets->ticket_number[i] = 1;

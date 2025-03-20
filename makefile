@@ -12,12 +12,16 @@ BIN_DIR = bin
 # Executable names
 TARGETS = $(BIN_DIR)/direttore $(BIN_DIR)/erogatore_ticket $(BIN_DIR)/operatore $(BIN_DIR)/utente $(BIN_DIR)/sportello
 
+# Common source files (shared across executables)
+COMMON_SRCS = $(SRC_DIR)/memory_handler.c $(SRC_DIR)/config.c
+COMMON_OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(COMMON_SRCS))
+
 # Source files for each executable
-SRCS_direttore = $(SRC_DIR)/direttore.c $(SRC_DIR)/config.c
-SRCS_erogatore = $(SRC_DIR)/erogatore_ticket.c $(SRC_DIR)/config.c
-SRCS_operatore = $(SRC_DIR)/operatore.c $(SRC_DIR)/config.c
-SRCS_utente = $(SRC_DIR)/utente.c $(SRC_DIR)/config.c
-SRCS_sportello = $(SRC_DIR)/sportello.c $(SRC_DIR)/config.c
+SRCS_direttore = $(SRC_DIR)/direttore.c $(COMMON_SRCS)
+SRCS_erogatore = $(SRC_DIR)/erogatore_ticket.c $(COMMON_SRCS)
+SRCS_operatore = $(SRC_DIR)/operatore.c $(COMMON_SRCS)
+SRCS_utente = $(SRC_DIR)/utente.c $(COMMON_SRCS)
+SRCS_sportello = $(SRC_DIR)/sportello.c $(COMMON_SRCS)
 
 # Object files for each executable
 OBJS_direttore = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS_direttore))

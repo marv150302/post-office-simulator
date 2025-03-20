@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "sportello.h"
+#include "memory_handler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
@@ -15,29 +16,14 @@ int main() {
 
     srand(time(NULL) ^ getpid());
 
-    // attach to sportello shared memory
-    int shmid_sportello = shmget(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), 0666);
-    if (shmid_sportello == -1) {
-        perror("Shared memory access failed (Sportello)");
-        exit(EXIT_FAILURE);
-    }
-    SportelloStatus *sportello = (SportelloStatus *)shmat(shmid_sportello, NULL, 0);
-    if (sportello == (void *)-1) {
-        perror("Shared memory attach failed (Sportello)");
-        exit(EXIT_FAILURE);
-    }
 
-    // attach to user waiting queue
-    int shmid_queue = shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666);
-    if (shmid_queue == -1) {
-        perror("Shared memory access failed (Queue)");
-        exit(EXIT_FAILURE);
-    }
-    WaitingQueue *queue = (WaitingQueue *)shmat(shmid_queue, NULL, 0);
-    if (queue == (void *)-1) {
-        perror("Shared memory attach failed (Queue)");
-        exit(EXIT_FAILURE);
-    }
+    // Create and attach Sportello shared memory
+    int shmid_sportello = create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
+    SportelloStatus *sportello = (SportelloStatus *)attach_shared_memory(shmid_sportello, "Sportello");
+
+    //create and attach waiting queue shared memory
+    int shmid_queu = create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "WaitingQueue");
+    WaitingQueue *queue = (WaitingQueue *)attach_shared_memory(shmid_queu, "WaitingQueue");
 
     int sportello_index = -1;
     // find which counter(sportello) this process is responsible for
@@ -55,6 +41,11 @@ int main() {
 
     printf("[Sportello %d] Handling service %d.\n", getpid(), sportello_index);
 
+    if (sportello_index == NOF_WORKER_SEATS - 1) {
+
+        sportello->sportelli_ready = 1;
+        printf("[Sportello %d] All sportelli are now ready!\n", sportello_index);
+    }
     while (1) {
         // check if users are waiting for this service
         if (queue->queue_size[sportello_index] > 0 && sportello->available[getpid()] == 1) {

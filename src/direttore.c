@@ -2,9 +2,76 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "sportello.h"
+#include "memory_handler.h"
+#include "direttore.h"
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+int main() {
+
+
+    load_config("config/config.txt");//load configuration values
+    printf("Starting simulation...\n");
+    printf("Size of SportelloStatus: %lu bytes\n", sizeof(SportelloStatus));
+
+	// Remove old shared memory before creating a new one
+shmctl(shmget(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), 0666), IPC_RMID, NULL);
+shmctl(shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666), IPC_RMID, NULL);
+
+    // Create and attach Sportello shared memory
+    int shmid_sportello = create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
+    SportelloStatus *sportello = (SportelloStatus *)attach_shared_memory(shmid_sportello, "Sportello");
+
+
+
+  	/*start all the different processes*/
+
+    start_process("erogatore_ticket", "./bin/erogatore_ticket");
+
+    /******** initialize counters(sportello) *****************+*/
+    for (int i = 0; i < NOF_WORKER_SEATS; i++) {
+        sportello->service_type[i] = rand() % NUM_SERVICES;  // assign random service
+        sportello->available[i] = 1;  // mark as available
+        sportello->assigned_operator[i] = -1;  // no operator assigned yet
+    }
+    for (int i = 0; i < NOF_WORKER_SEATS; i++) {
+
+        //assigning the operator to the counter
+        sportello->assigned_operator[i] = start_process("sportello", "./bin/sportello");
+    }
+
+    while (sportello->sportelli_ready != 1) {
+    	printf("Waiting for sportelli to initialize...\n");
+    	sleep(1);
+	}
+	printf("All sportelli initialized. Starting operatore processes...\n");
+
+    /********** initializing all the operators ******************************+*/
+    for (int i = 0; i < NOF_WORKERS; i++) {
+        start_process("operatore", "./bin/operatore");
+    }
+
+    //waiting for all the operators to be at the counter
+    while (sportello->operatori_ready != 1) {
+    	printf("Waiting for operatori to be assigned...\n");
+    	sleep(1);
+	}
+    printf("All operators assigned. Starting user processes...\n");
+
+	/****************************************+*//****************************************+*/
+    for (int i = 0; i < NOF_USERS; i++) {
+        start_process("utente", "./bin/utente");
+    }
+
+
+    // wait for all child processes to finish
+    while (wait(NULL) > 0);
+
+    printf("Simulation finished.\n");
+    return 0;
+}
+
 
 pid_t start_process(const char *name, const char *path) {
     pid_t pid = fork();  // Create a new process
@@ -21,65 +88,4 @@ pid_t start_process(const char *name, const char *path) {
 
     // Parent process: Return the child process ID
     return pid;
-}
-
-int main() {
-    load_config("config/config.txt");
-
-    printf("Starting simulation...\n");
-
-    // attach to sportello shared memory
-    int shmid_sportello = shmget(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), 0666);
-    if (shmid_sportello == -1) {
-        perror("Shared memory access failed (Sportello)");
-        exit(EXIT_FAILURE);
-    }
-    SportelloStatus *sportello = (SportelloStatus *)shmat(shmid_sportello, NULL, 0);
-    if (sportello == (void *)-1) {
-        perror("Shared memory attach failed (Sportello)");
-        exit(EXIT_FAILURE);
-    }
-
-    // Create shared memory for the queue
-    int shmid_queue = shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), IPC_CREAT | 0666);
-    if (shmid_queue == -1) {
-        perror("Shared memory creation failed (Queue)");
-        exit(EXIT_FAILURE);
-    }
-    WaitingQueue *queue = (WaitingQueue *)shmat(shmid_queue, NULL, 0);
-    if (queue == (void *)-1) {
-        perror("Shared memory attach failed (Queue)");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Shared memory successfully created.\n");
-
-
-    start_process("erogatore_ticket", "./bin/erogatore_ticket");
-
-    for (int i = 0; i < NOF_WORKERS; i++) {
-        start_process("operatore", "./bin/operatore");
-    }
-
-    for (int i = 0; i < NOF_USERS; i++) {
-        start_process("utente", "./bin/utente");
-    }
-
-    // initialize counters
-    for (int i = 0; i < NOF_WORKER_SEATS; i++) {
-        sportello->service_type[i] = rand() % NUM_SERVICES;  // assign random service
-        sportello->available[i] = 1;  // mark as available
-        sportello->assigned_operator[i] = -1;  // no operator assigned yet
-    }
-    for (int i = 0; i < NOF_WORKER_SEATS; i++) {
-
-        sportello->assigned_operator[i] = start_process("sportello", "./bin/sportello"); //assigning the operator
-    }
-
-
-    // wait for all child processes to finish
-    while (wait(NULL) > 0);
-
-    printf("Simulation finished.\n");
-    return 0;
 }
