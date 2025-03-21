@@ -10,6 +10,8 @@
 
 int main() {
 
+    load_config("config/config.json");
+
     srand(time(NULL) ^ getpid()); //allows for a better range of random numbers
     // Attach to the shared queue memory
     int shmid = shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666);

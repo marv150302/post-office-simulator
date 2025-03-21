@@ -1,14 +1,17 @@
 #include "config.h"
+#include "../libs/cJSON/cJSON.h"
 #include <string.h>
+#include <stdlib.h>
 
-int NOF_WORKERS = DEFAULT_NOF_WORKERS;
-int NOF_USERS = DEFAULT_NOF_USERS;
-int NOF_WORKER_SEATS = DEFAULT_NOF_WORKER_SEATS;
-int SIM_DURATION = DEFAULT_SIM_DURATION;
-int N_NANO_SECS = DEFAULT_N_NANO_SECS;
-int EXPLODE_THRESHOLD = DEFAULT_EXPLODE_THRESHOLD;
-double P_SERV_MIN = DEFAULT_P_SERV_MIN;
-double P_SERV_MAX = DEFAULT_P_SERV_MAX;
+int NOF_WORKERS = 0;
+int NOF_USERS = 0;
+int NOF_WORKER_SEATS = 0;
+int SIM_DURATION = 0;
+int N_NANO_SECS = 0;
+int EXPLODE_THRESHOLD = 0;
+double P_SERV_MIN = 0.0;
+double P_SERV_MAX = 0.0;
+
 const int SERVICE_TIME[NUM_SERVICES] = {10, 8, 6, 8, 20, 20};
 
 void load_config(const char *filename) {
@@ -18,39 +21,56 @@ void load_config(const char *filename) {
         return;
     }
 
-    char line[256];
-    while (fgets(line, sizeof(line), file)) {
-        char *equal_sign = strchr(line, '='); // Find '=' in the line
-        if (!equal_sign) continue; // Skip lines without '='
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    rewind(file);
 
-        *equal_sign = '\0'; // Splits string at '=' (replaces it with null terminator)
-        char *key = line;
-        char *value = equal_sign + 1; // Moves to the value part
-
-        // Remove trailing newline if present
-        value[strcspn(value, "\r\n")] = 0;
-
-        if (strcmp(key, "NOF_WORKERS") == 0)
-            NOF_WORKERS = atoi(value);
-        else if (strcmp(key, "NOF_USERS") == 0)
-            NOF_USERS = atoi(value);
-        else if (strcmp(key, "NOF_WORKER_SEATS") == 0)
-            NOF_WORKER_SEATS = atoi(value);
-        else if (strcmp(key, "SIM_DURATION") == 0)
-            SIM_DURATION = atoi(value);
-        else if (strcmp(key, "N_NANO_SECS") == 0)
-            N_NANO_SECS = atoi(value);
-        else if (strcmp(key, "P_SERV_MIN") == 0)
-            P_SERV_MIN = atof(value);
-        else if (strcmp(key, "P_SERV_MAX") == 0)
-            P_SERV_MAX = atof(value);
-        else if (strcmp(key, "EXPLODE_THRESHOLD") == 0)
-            EXPLODE_THRESHOLD = atoi(value);
+    char *json_data = malloc(length + 1);
+    if (!json_data) {
+        perror("Memory allocation failed");
+        fclose(file);
+        return;
     }
 
+    fread(json_data, 1, length, file);
+    json_data[length] = '\0';
     fclose(file);
+
+    cJSON *root = cJSON_Parse(json_data);
+    if (!root) {
+        fprintf(stderr, "JSON parse error: %s\n", cJSON_GetErrorPtr());
+        free(json_data);
+        return;
+    }
+
+    cJSON *val;
+
+    if ((val = cJSON_GetObjectItem(root, "NOF_WORKERS")) && cJSON_IsNumber(val))
+        NOF_WORKERS = val->valueint;
+
+    if ((val = cJSON_GetObjectItem(root, "NOF_USERS")) && cJSON_IsNumber(val))
+        NOF_USERS = val->valueint;
+
+    if ((val = cJSON_GetObjectItem(root, "NOF_WORKER_SEATS")) && cJSON_IsNumber(val))
+        NOF_WORKER_SEATS = val->valueint;
+
+    if ((val = cJSON_GetObjectItem(root, "SIM_DURATION")) && cJSON_IsNumber(val))
+        SIM_DURATION = val->valueint;
+
+    if ((val = cJSON_GetObjectItem(root, "N_NANO_SECS")) && cJSON_IsNumber(val))
+        N_NANO_SECS = val->valueint;
+
+    if ((val = cJSON_GetObjectItem(root, "P_SERV_MIN")) && cJSON_IsNumber(val))
+        P_SERV_MIN = val->valuedouble;
+
+    if ((val = cJSON_GetObjectItem(root, "P_SERV_MAX")) && cJSON_IsNumber(val))
+        P_SERV_MAX = val->valuedouble;
+
+    if ((val = cJSON_GetObjectItem(root, "EXPLODE_THRESHOLD")) && cJSON_IsNumber(val))
+        EXPLODE_THRESHOLD = val->valueint;
+
+    cJSON_Delete(root);
+    free(json_data);
+
+
 }
-
-
-
-

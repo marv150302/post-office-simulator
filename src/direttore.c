@@ -11,13 +11,14 @@
 int main() {
 
 
-    load_config("config/config.txt");//load configuration values
-    printf("Starting simulation...\n");
-    printf("Size of SportelloStatus: %lu bytes\n", sizeof(SportelloStatus));
 
-	// Remove old shared memory before creating a new one
-shmctl(shmget(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), 0666), IPC_RMID, NULL);
-shmctl(shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666), IPC_RMID, NULL);
+    load_config("config/config.json");//load configuration values
+
+    printf("Starting simulation...\n");
+
+
+
+
 
     // Create and attach Sportello shared memory
     int shmid_sportello = create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
@@ -27,7 +28,7 @@ shmctl(shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666), IPC_RMID, NULL);
 
   	/*start all the different processes*/
 
-    start_process("erogatore_ticket", "./bin/erogatore_ticket");
+    start_process("erogatore_ticket", "./bin/erogatore_ticket", 0);
 
     /******** initialize counters(sportello) *****************+*/
     for (int i = 0; i < NOF_WORKER_SEATS; i++) {
@@ -38,7 +39,8 @@ shmctl(shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666), IPC_RMID, NULL);
     for (int i = 0; i < NOF_WORKER_SEATS; i++) {
 
         //assigning the operator to the counter
-        sportello->assigned_operator[i] = start_process("sportello", "./bin/sportello");
+        start_process("sportello", "./bin/sportello", i);
+
     }
 
     while (sportello->sportelli_ready != 1) {
@@ -47,9 +49,10 @@ shmctl(shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666), IPC_RMID, NULL);
 	}
 	printf("All sportelli initialized. Starting operatore processes...\n");
 
+
     /********** initializing all the operators ******************************+*/
     for (int i = 0; i < NOF_WORKERS; i++) {
-        start_process("operatore", "./bin/operatore");
+        start_process("operatore", "./bin/operatore",  i);
     }
 
     //waiting for all the operators to be at the counter
@@ -61,7 +64,7 @@ shmctl(shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666), IPC_RMID, NULL);
 
 	/****************************************+*//****************************************+*/
     for (int i = 0; i < NOF_USERS; i++) {
-        start_process("utente", "./bin/utente");
+        start_process("utente", "./bin/utente", i);
     }
 
 
@@ -73,7 +76,7 @@ shmctl(shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666), IPC_RMID, NULL);
 }
 
 
-pid_t start_process(const char *name, const char *path) {
+/*pid_t start_process(const char *name, const char *path) {
     pid_t pid = fork();  // Create a new process
 
     if (pid < 0) {
@@ -87,5 +90,22 @@ pid_t start_process(const char *name, const char *path) {
     }
 
     // Parent process: Return the child process ID
+    return pid;
+}
+*/
+
+pid_t start_process(const char *name, const char *path, int arg) {
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("Fork failed");
+        exit(EXIT_FAILURE);
+    } else if (pid == 0) {
+        char arg_str[10];
+        snprintf(arg_str, sizeof(arg_str), "%d", arg);
+        execl(path, name, arg_str, NULL);
+        perror("Exec failed");
+        exit(EXIT_FAILURE);
+    }
+
     return pid;
 }

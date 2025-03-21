@@ -55,7 +55,6 @@ typedef struct {
 
 
 // average service processing times (minutes)
-extern const int SERVICE_TIME[NUM_SERVICES];
 
 // (will be set by `load_config()`)
 extern int NOF_WORKERS;
@@ -66,6 +65,7 @@ extern int N_NANO_SECS;
 extern int EXPLODE_THRESHOLD;
 extern double P_SERV_MIN;
 extern double P_SERV_MAX;
+extern const int SERVICE_TIME[NUM_SERVICES];
 
 void load_config(const char *filename);
 
