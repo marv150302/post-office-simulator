@@ -1,5 +1,4 @@
 #include "config.h"
-#include "../libs/cJSON/cJSON.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -12,7 +11,8 @@ int EXPLODE_THRESHOLD = 0;
 double P_SERV_MIN = 0.0;
 double P_SERV_MAX = 0.0;
 
-const int SERVICE_TIME[NUM_SERVICES] = {10, 8, 6, 8, 20, 20};
+char SERVICE_NAMES[NUM_SERVICES][MAX_SERVICE_NAME_LEN] = {0};
+int SERVICE_TIME[NUM_SERVICES] = {0};
 
 void load_config(const char *filename) {
     FILE *file = fopen(filename, "r");
@@ -69,8 +69,35 @@ void load_config(const char *filename) {
     if ((val = cJSON_GetObjectItem(root, "EXPLODE_THRESHOLD")) && cJSON_IsNumber(val))
         EXPLODE_THRESHOLD = val->valueint;
 
+    //load services
+    load_services(root);
+
+
     cJSON_Delete(root);
     free(json_data);
 
+}
 
+void load_services(cJSON *root) {
+
+    cJSON *services = cJSON_GetObjectItem(root, "SERVICES");
+    if (services && cJSON_IsArray(services)) {
+        int count = cJSON_GetArraySize(services);
+        if (count != NUM_SERVICES) {
+            fprintf(stderr, "Warning: Expected %d services but got %d.\n", NUM_SERVICES, count);
+        }
+        for (int i = 0; i < count && i < NUM_SERVICES; ++i) {
+            cJSON *service = cJSON_GetArrayItem(services, i);
+            if (!cJSON_IsObject(service)) continue;
+
+            cJSON *name = cJSON_GetObjectItem(service, "name");
+            cJSON *time = cJSON_GetObjectItem(service, "time");
+
+            if (cJSON_IsString(name) && cJSON_IsNumber(time)) {
+                strncpy(SERVICE_NAMES[i], name->valuestring, MAX_SERVICE_NAME_LEN - 1);
+                SERVICE_NAMES[i][MAX_SERVICE_NAME_LEN - 1] = '\0';
+                SERVICE_TIME[i] = time->valueint;
+            }
+        }
+    }
 }

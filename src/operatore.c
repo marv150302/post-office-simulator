@@ -8,8 +8,17 @@
 #include <unistd.h>
 #include <time.h>
 
+volatile sig_atomic_t running = 1;
+
+void handle_sigterm(int sig) {
+
+    printf("Received signal %d, shutting down [TICKET EROGATOR]\n", sig);
+    running = 0;
+}
+
 int main() {
 
+    signal(SIGTERM, handle_sigterm);
     srand(time(NULL) ^ getpid());
 
     load_config("config/config.json");
@@ -30,11 +39,8 @@ int main() {
     // find a free counter
     while (assigned_sportello == -1) {
 
-
-
         for (int i = 0; i < NOF_WORKER_SEATS; i++) {
             if (sportello->available[i] == 1) {
-
 
                 sportello->available[i] = 0;
                 sportello->assigned_operator[i] = getpid();
@@ -44,7 +50,7 @@ int main() {
             }
         }
 
-        printf("[Operatore %d] Waiting for an available sportello...\n", getpid());
+        printf("[Operatore %d] Waiting for an available sportello\n", getpid());
         sleep(1);  // Wait and retry
 	}
 
@@ -59,7 +65,7 @@ int main() {
     }
 
 
-    printf("[Operatore %d] Ready to serve customers...\n", getpid());
+    printf("[Operatore %d] Ready to serve customers\n", getpid());
 
     int assigned_count = 0;
     for (int i = 0; i < MAX_SPORTELLI; i++) {
@@ -70,36 +76,35 @@ int main() {
 
 
     if (assigned_count == NOF_WORKERS) {
-      	printf("operatore assigned");
         sportello->operatori_ready = 1;
     }
-    while (1) {
-        int service_type = rand() % NUM_SERVICES;  // randomly choose a service to check
+    while (running) {
 
-        // check if users are waiting for this service
-        if (queue->queue_size[service_type] > 0) {
-            int ticket = queue->ticket_queue[service_type][0];
+        for (int service_type = 0; service_type < NUM_SERVICES; ++service_type) {
+            if (queue->queue_size[service_type] > 0) {
 
-            // shift queue forward the first user that arrives is the first user to be served(fifo)
-            for (int i = 0; i < queue->queue_size[service_type] - 1; i++) {
-                queue->ticket_queue[service_type][i] = queue->ticket_queue[service_type][i + 1];
+
+                int ticket = queue->ticket_queue[service_type][0];
+
+                // Shift the queue (FIFO)
+                for (int i = 0; i < queue->queue_size[service_type] - 1; i++) {
+                    queue->ticket_queue[service_type][i] = queue->ticket_queue[service_type][i + 1];
+                }
+                queue->queue_size[service_type]--;
+
+                int service_time = SERVICE_TIME[service_type] + (rand() % 5 - 2);
+                printf("[Operatore %d] Serving ticket %d for Service: [%s] (Expected time: %d min)\n",
+                       getpid(), ticket, SERVICE_NAMES[service_type], service_time);
+
+                sleep(service_time);
+
+                printf("[Operatore %d] Finished ticket %d for Service: [%s] at sportello %d.\n",
+                       getpid(), ticket, SERVICE_NAMES[service_type], assigned_sportello);
+
+                break;  // Handle one ticket per loop
             }
-            queue->queue_size[service_type]--;  // Reduce queue size
-
-            // calculate operator service time randomly
-            // rand() % 5 → Generates a random number between 0 and 4.
-            // Subtracting 2 shifts the range of the service time to -2 to +2.
-            int service_time = SERVICE_TIME[service_type] + (rand() % 5 - 2);
-            printf("[Operatore %d] Serving ticket %d for service %d (Expected time: %d min)\n",
-                   getpid(), ticket, service_type, service_time);
-            //simulate the operator working
-            sleep(service_time);
-
-            printf("[Operatore %d] Finished serving ticket %d\n", getpid(), ticket);
-            printf("[Operatore %d] Finished serving ticket %d at sportello %d.\n", getpid(), ticket, assigned_sportello);
-            sportello->available[assigned_sportello] = 1;  // Free the sportello
         }
 
-        sleep(1);  // wait before checking in, so we prevent the cpu from working too much
+
     }
 }

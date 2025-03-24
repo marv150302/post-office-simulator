@@ -9,16 +9,22 @@
 #include <unistd.h>
 #include <time.h>
 
+volatile sig_atomic_t running = 1;
 
+void handle_sigterm(int sig) {
+
+    printf("Received signal %d, shutting down [TICKET EROGATOR]\n", sig);
+    running = 0;
+}
 
 int main() {
-    srand(time(NULL));
 
+    signal(SIGTERM, handle_sigterm);
     //create and attach shared memory for ticket system
     int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
     TicketSystem *tickets = (TicketSystem *)attach_shared_memory(shmid_erogatore, "Erogatore");
 
-
+    srand((unsigned) time(NULL) ^ getpid());
 
 
     for (int i = 0; i < NUM_SERVICES; i++) {
@@ -34,7 +40,7 @@ int main() {
 
     printf("[Erogatore] Ticket system initialized. Waiting for user requests...\n");
 
-    while (1) {
+    while (running) {
         // Wait for a user request
         TicketRequest request;
         if (msgrcv(msgid, &request, sizeof(TicketRequest) - sizeof(long), 10, 0) == -1) {

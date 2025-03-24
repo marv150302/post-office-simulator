@@ -7,6 +7,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/msg.h>
+#include "../libs/cJSON/cJSON.h"
 
 #define NUM_SERVICES 6 // number of services provided
 #define MAX_SPORTELLI 5 // maximum number of counters
@@ -28,6 +29,8 @@
 #define DEFAULT_P_SERV_MIN 0.2
 #define DEFAULT_P_SERV_MAX 0.8
 #define DEFAULT_EXPLODE_THRESHOLD 50
+
+#define MAX_SERVICE_NAME_LEN 64
 
 // service types
 enum ServiceType {
@@ -65,8 +68,10 @@ extern int N_NANO_SECS;
 extern int EXPLODE_THRESHOLD;
 extern double P_SERV_MIN;
 extern double P_SERV_MAX;
-extern const int SERVICE_TIME[NUM_SERVICES];
+extern char SERVICE_NAMES[NUM_SERVICES][MAX_SERVICE_NAME_LEN];
+extern int SERVICE_TIME[NUM_SERVICES];
 
 void load_config(const char *filename);
+void load_services(cJSON *root);
 
 #endif // CONFIG_H

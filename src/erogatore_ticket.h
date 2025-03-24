@@ -13,6 +13,7 @@ typedef struct {
 typedef struct {
     long msg_type;
     int ticket_number;
+    pid_t pid;
     int estimated_time;
 } TicketMessage;
 #endif //EROGATORE_TICKET_H
