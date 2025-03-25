@@ -17,7 +17,8 @@
 
 
 #define QUEUE_SHM_KEY 6789 // shared memory key for waiting queue
-#define SEM_KEY 7890  // semaphore key
+#define SEM_KEY_BASE 9000 // semaphore key
+
 
 
 // Default values (used only if config file is missing)
@@ -70,6 +71,17 @@ extern double P_SERV_MIN;
 extern double P_SERV_MAX;
 extern char SERVICE_NAMES[NUM_SERVICES][MAX_SERVICE_NAME_LEN];
 extern int SERVICE_TIME[NUM_SERVICES];
+
+// Terminal color codes
+#define COLOR_RESET   "\033[0m"
+#define COLOR_RED     "\033[1;31m"
+#define COLOR_GREEN   "\033[1;32m"
+#define COLOR_YELLOW  "\033[1;33m"
+
+
+#define LOG_INFO(fmt, ...)  printf(COLOR_GREEN "[INFO] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...)  printf(COLOR_YELLOW "[WARN] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
+#define LOG_ERR(fmt, ...)   fprintf(stderr, COLOR_RED "[ERROR] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
 
 void load_config(const char *filename);
 void load_services(cJSON *root);

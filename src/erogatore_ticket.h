@@ -7,7 +7,8 @@
 
 // Define message structure for requests and responses
 typedef struct {
-    long msg_type; // Service type requested
+    long msg_type; //the type of message received by the erogator(in our case a request of service)
+    int service_type; //the actual service requested
 } TicketRequest;
 
 typedef struct {

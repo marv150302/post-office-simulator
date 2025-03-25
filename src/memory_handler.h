@@ -12,4 +12,6 @@ int create_shared_memory(key_t key, size_t size, const char *name); //function t
 void* attach_shared_memory(int shmid, const char *name); //function to attach memory
 void detach_shared_memory(void *shm_ptr); //function to detach shared memory
 void remove_shared_memory(int shmid); //function to remove shared memory
+void clean_shared_memory(int key); //function for cleaning the shared memory
+void clean_message_queue(int key); //function to clean message queue
 #endif //MEMORY_HANDLER_H

@@ -17,7 +17,7 @@ CJSON_SRC = libs/cJSON/cJSON.c
 CJSON_OBJ = $(BUILD_DIR)/cJSON.o
 
 # Common source files (shared across executables)
-COMMON_SRCS = $(SRC_DIR)/memory_handler.c $(SRC_DIR)/config.c
+COMMON_SRCS = $(SRC_DIR)/memory_handler.c $(SRC_DIR)/config.c $(SRC_DIR)/semaphore_utils.c
 COMMON_OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(COMMON_SRCS))
 
 # Source files for each executable
