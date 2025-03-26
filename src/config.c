@@ -8,8 +8,11 @@ int NOF_WORKER_SEATS = 0;
 int SIM_DURATION = 0;
 int N_NANO_SECS = 0;
 int EXPLODE_THRESHOLD = 0;
+int NOF_PAUSE = 0;
 double P_SERV_MIN = 0.0;
 double P_SERV_MAX = 0.0;
+double BREAK_PROBABILITY = 0.0;
+int CURRENT_DAY = 1;
 
 char SERVICE_NAMES[NUM_SERVICES][MAX_SERVICE_NAME_LEN] = {0};
 int SERVICE_TIME[NUM_SERVICES] = {0};
@@ -68,6 +71,12 @@ void load_config(const char *filename) {
 
     if ((val = cJSON_GetObjectItem(root, "EXPLODE_THRESHOLD")) && cJSON_IsNumber(val))
         EXPLODE_THRESHOLD = val->valueint;
+
+    if ((val = cJSON_GetObjectItem(root, "NOF_PAUSE")) && cJSON_IsNumber(val))
+        NOF_PAUSE = val->valueint;
+
+    if ((val = cJSON_GetObjectItem(root, "BREAK_PROBABILITY")) && cJSON_IsNumber(val))
+        BREAK_PROBABILITY = val->valueint;
 
     //load services
     load_services(root);

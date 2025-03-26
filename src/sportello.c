@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
     load_config("config/config.json");
 
     if (argc != 2) {
-        LOG_ERR("Usage: %s <sportello_index>\n", argv[0]);
+        LOG_ERR("Usage: %s <sportello service>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -37,15 +37,21 @@ int main(int argc, char **argv) {
     int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
     TicketSystem *tickets = (TicketSystem *)attach_shared_memory(shmid_erogatore, "Erogatore");
 
-    // Read sportello index from argument
+    // Read sportello service from argument
     int sportello_index = atoi(argv[1]);
+
+    sportello->service_type[sportello_index] = rand() % NUM_SERVICES; // assign random service
+    sportello->available[sportello_index] = 1; // mark as available
+    sportello->assigned_operator[sportello_index] = -1; // no operator assigned yet
+
+
 
     if (sportello_index == -1) {
         LOG_ERR("[Sportello %d] ERROR: No available sportello slot.\n", getpid());
         exit(EXIT_FAILURE);
     }
 
-    LOG_INFO("[Sportello %d] Handling service %d.\n", getpid(), sportello_index);
+    LOG_INFO("[Sportello %d] Handling service %d.\n", getpid(), sportello->service_type[sportello_index]);
 
     if (sportello_index == NOF_WORKER_SEATS - 1) {
         sportello->sportelli_ready = 1;

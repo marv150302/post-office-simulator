@@ -51,7 +51,7 @@ int main() {
 		if ((i + 1) % (24 * 60) == 0) {
 			int day = (i + 1) / (24 * 60);
 			//clear_screen();
-			LOG_WARN("\033[1;33m\n\n ========================================== SIMULATION DAY %d STARTED ====================================================================  \n\n\033[0m", day);
+			LOG_WARN("\033[1;33m\n\n ========================================== SIMULATION DAY %d ENDED ====================================================================  \n\n\033[0m", day);
 
 			kill_all_processes();
 			cleanup_all_semaphores();
@@ -67,6 +67,7 @@ int main() {
 				start_all_processes();
 
 				LOG_WARN("\033[1;33m\n\n ========================================== SIMULATION DAY %d STARTED ====================================================================  \n\n\033[0m", day + 1);
+				CURRENT_DAY = day + 1;
 			}
 		}
 	}
@@ -100,11 +101,7 @@ void start_all_processes() {
 	start_process("erogatore_ticket", "./bin/erogatore_ticket", 0);
 
 	/******** initialize counters(sportello) *****************+*/
-	for (int i = 0; i < NOF_WORKER_SEATS; i++) {
-		sportello->service_type[i] = rand() % NUM_SERVICES; // assign random service
-		sportello->available[i] = 1; // mark as available
-		sportello->assigned_operator[i] = -1; // no operator assigned yet
-	}
+
 	for (int i = 0; i < NOF_WORKER_SEATS; i++) {
 		//assigning the operator to the counter
 		start_process("sportello", "./bin/sportello", i);
