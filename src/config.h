@@ -29,8 +29,8 @@
 #define DEFAULT_P_SERV_MIN 0.2
 #define DEFAULT_P_SERV_MAX 0.8
 #define DEFAULT_EXPLODE_THRESHOLD 50
-#define DEFAULT_NOF PAUSE 2
-
+#define DEFAULT_NOF_PAUSE 2
+#define MAX_CLIENTS 50
 #define MAX_SERVICE_NAME_LEN 64 //the max length of each service name
 
 
@@ -62,12 +62,15 @@ enum ServiceType {
 // structure to store ticket system in shared memory
 typedef struct {
     int ticket_number[NUM_SERVICES];  // Ticket counters per service
+    int client_served[NUM_SERVICES][MAX_CLIENTS]; //use to check if a client has been served
 } TicketSystem;
 
 // structure for user queue
 typedef struct {
-    int ticket_queue[NUM_SERVICES][50]; // Queue for each service (max 50 users per service)
+
+    int ticket_queue[NUM_SERVICES][10]; // Queue for each service (max 10 users per service)
     int queue_size[NUM_SERVICES]; // Number of users waiting per service
+    int served[MAX_CLIENTS];
 } WaitingQueue;
 
 
@@ -85,8 +88,8 @@ extern double P_SERV_MAX;
 extern char SERVICE_NAMES[NUM_SERVICES][MAX_SERVICE_NAME_LEN];
 extern int SERVICE_TIME[NUM_SERVICES];
 
-/////////
-extern int CURRENT_DAY;//current simulation day
+
+
 
 void load_config(const char *filename);
 void load_services(cJSON *root);

@@ -8,11 +8,32 @@
 #include <sys/msg.h>
 #include <unistd.h>
 #include <time.h>
+#include "direttore.h"
+#include "memory_handler.h"
 #include <string.h>
 
-int main() {
-    load_config("config/config.json");
+int main(int argc, char *argv[]) {
+
     srand(time(NULL) ^ getpid());
+    int shmid_direttore = create_shared_memory(DIRETTORE_KEY, sizeof(Direttore), "Direttore");
+    Direttore *direttore = (Direttore *) attach_shared_memory(shmid_direttore, "Direttore");
+
+
+    if (argc > 2 && strcmp(argv[2], "--from-direttore") == 0) {
+        LOG_WARN("Client Launched by direttore");
+    } else {
+        LOG_WARN("Client Launched manually from terminal");
+        // Save PID
+        if (direttore->child_proc_count < MAX_CHILDREN) {
+            direttore->child_pids[direttore->child_proc_count++] = getpid();
+        }
+    }
+    load_config("config/config.json");
+
+
+
+    int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+    TicketSystem *tickets = (TicketSystem *)attach_shared_memory(shmid_erogatore, "Erogatore");
 
     // Attach to shared queue memory
     int shmid = shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666);
@@ -30,7 +51,7 @@ int main() {
     // randomly select a service
     int service_type = rand() % NUM_SERVICES;
 
-    if (queue->queue_size[service_type] >= 50) {
+    if (queue->queue_size[service_type] >= MAX_CLIENTS) {
         LOG_WARN("[Utente %d] Queue for service %d is full. Exiting...\n", getpid(), service_type);
         return EXIT_FAILURE;
     }
@@ -75,10 +96,26 @@ int main() {
     queue->ticket_queue[service_type][pos] = msg.ticket_number;
     queue->queue_size[service_type]++;
     queue->ticket_queue[service_type][0]++;
+
+    tickets->client_served[service_type][queue->ticket_queue[service_type][0]] = 0;
+
+    //
+    queue->served[direttore->client_count] = 0;
+    direttore->client_count++;
+    //
     unlock_semaphore(service_type);
 
     LOG_INFO("[Utente %d] Waiting in line for Service: [%s]\n", getpid(), SERVICE_NAMES[service_type]);
 
+    while (tickets->client_served[service_type][queue->ticket_queue[service_type][0]] == 0) {
+        printf("client: %d", tickets->client_served[service_type][queue->ticket_queue[service_type][0]]);
+        sleep(1);
+
+    } //let the client wait till he's served
+
+    LOG_INFO("[Utente %d] has been served\n", getpid());
+
+    //i need to add the case where a client has another service requirment
     shmdt(queue);
     return 0;
 }

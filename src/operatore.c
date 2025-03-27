@@ -3,6 +3,8 @@
 #include "semaphore_utils.h"
 #include "memory_handler.h"
 #include <stdio.h>
+#include "direttore.h"
+#include <string.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -18,12 +20,31 @@ void handle_sigterm(int sig) {
 }
 
 int main(int argc, char *argv[]) {
+
+
 	signal(SIGTERM, handle_sigterm);
 	srand(time(NULL) ^ getpid());
 
-	if (argc != 2) {
-		LOG_ERR("Usage: %s <sportello service>\n", argv[0]);
+
+	int shmid_direttore = create_shared_memory(DIRETTORE_KEY, sizeof(Direttore), "Direttore");
+	Direttore *direttore = (Direttore *) attach_shared_memory(shmid_direttore, "Direttore");
+
+
+	if (argc < 2) {
+		printf("arg; %s", argv[1]);
+		LOG_ERR("Usage: %s <Operatore service>\n", argv[0]);
 		exit(EXIT_FAILURE);
+	}
+
+
+	if (argc > 2 && strcmp(argv[2], "--from-direttore") == 0) {
+		LOG_WARN("Operator Launched by direttore");
+	} else {
+		LOG_WARN("Operator Launched manually from terminal");
+		// Save PID
+		if (direttore->child_proc_count < MAX_CHILDREN) {
+			direttore->child_pids[direttore->child_proc_count++] = getpid();
+		}
 	}
 
 
@@ -38,36 +59,31 @@ int main(int argc, char *argv[]) {
 	WaitingQueue *queue = (WaitingQueue *) attach_shared_memory(shmid_queue, "WaitingQueue");
 
 	// Create and attach operator shared memory
-	int shmid_operator = create_shared_memory(QUEUE_SHM_KEY, sizeof(Operatore), "WaitingQueue");
+	int shmid_operator = create_shared_memory(OPERATORS_SHM_KEY, sizeof(Operatore), "Operatore");
 	Operatore *operator = (Operatore *) attach_shared_memory(shmid_operator, "Operatore");
 
-	//check if there are too many workers
-	int assigned_count = 0;
-	for (int i = 0; i < MAX_SPORTELLI; i++) {
-		if (sportello->assigned_operator[i] != -1) {
-			assigned_count++;
-		}
-	}
+	int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+	TicketSystem *tickets = (TicketSystem *)attach_shared_memory(shmid_erogatore, "Erogatore");
 
-	if (assigned_count == NOF_WORKERS) {
-		sportello->operatori_ready = 1;
-	}else if (assigned_count >= NOF_WORKERS) {
 
-		perror("TOO MANY WORKERS");
-		return 0;
-	}
+	//allocate memory for all the workers and counters
+	operator->breaks_taken = malloc(sizeof(int));
+	operator->assigned_sportello = malloc(sizeof(int));
+	//if (operator->operators_at_job != NOF_WORKERS)
+
 
 
 	int assigned_service = -1;
 	int operatore_index = atoi(argv[1]); //the index of the operator that just joined the list of operators
 	operator->assigned_sportello[operatore_index] = -1;
 
-	//allocate memory for all the workers and counters
-	operator->breaks_taken = malloc(sizeof(int) * NOF_WORKERS);
-	operator->assigned_sportello = malloc(sizeof(int) * NOF_WORKER_SEATS);
+
+	//printf("operator current day: %d", operator->current_day);
+
 
 	// Find a free counter
 	while (operator->assigned_sportello[operatore_index] == -1) {
+
 		for (int i = 0; i < NOF_WORKER_SEATS; i++) {
 			if (sportello->available[i] == 1) {
 				sportello->available[i] = 0;
@@ -91,10 +107,22 @@ int main(int argc, char *argv[]) {
 	LOG_INFO("[Operatore %d] Ready to serve customers\n", getpid());
 
 
+	//check if there are too many workers
+	int assigned_count = 0;
+	for (int i = 0; i < MAX_SPORTELLI; i++) {
+		if (sportello->assigned_operator[i] != -1) {
+			assigned_count++;
+		}
+	}
+
+
+	if (assigned_count == NOF_WORKERS) {
+
+		sportello->operatori_ready = 1;
+	}
 
 	while (running) {
-		int found_ticket = 0;
-
+		//int found_ticket = 0;
 
 		for (int service_type = 0; service_type < NUM_SERVICES; ++service_type) {
 			if (queue->queue_size[service_type] > 0) {
@@ -114,26 +142,40 @@ int main(int argc, char *argv[]) {
 
 				sleep(service_time);
 
-				LOG_INFO("[Operatore %d] Finished ticket %d for Service: [%s] at sportello %d.\n",
+				tickets->client_served[service_type][queue->ticket_queue[service_type][0]] = 1;
+				LOG_INFO("[Operatore %d] Finished serving ticket %d for Service: [%s] at sportello %d.\n",
 				         getpid(), ticket, SERVICE_NAMES[service_type], operator->assigned_sportello[operatore_index]);
 
-				found_ticket = 1;
+				//found_ticket = 1;
+
+				//printf("random value: %d", (rand() % 10));
+				//printf("breaks_taken: %d", operator->breaks_taken[operatore_index]);
+				//printf("NOF_PAUSES: %d", NOF_PAUSE);
+				if (operator->breaks_taken[operatore_index] < NOF_PAUSE && (rand() % 150) < BREAK_PROBABILITY) {
+
+					take_break(operator, operatore_index);
+					//int duration = rand() % 3 + 2;  // 2–4 simulated minutes
+					//LOG_WARN("[Operatore %d] Taking break #%d for %d minutes", getpid(), operator->breaks_taken[operatore_index] + 1, duration);
+					//sleep(duration); // simulate break
+					//operator->breaks_taken[operatore_index]++;
+				}
 				break; // Handle one ticket per loop
 			}
 		}
 
-		if (!found_ticket) {
-			if (operator->breaks_taken[operatore_index] < NOF_PAUSE && (rand() % 100) < BREAK_PROBABILITY) {
-				int duration = rand() % 3 + 2;  // 2–4 simulated minutes
-				LOG_WARN("[Operatore %d] Taking break #%d for %d minutes", getpid(), operator->breaks_taken[operatore_index] + 1, duration);
-				sleep(duration); // simulate break
-				operator->breaks_taken[operatore_index]++;
-			}
-			sleep(1); // Only sleep if the cycle is idle
-		}
+
 	}
 }
 
-void take_break() {
-	LOG_INFO("[Operatore %d] Taking break\n", getpid());
+void take_break(Operatore *operatore, int index) {
+
+	int temp_current_day = operatore->current_day;
+
+	operatore->breaks_taken[index]++;
+	LOG_WARN("[Operatore %d] IS TAKING A BREAK\n", getpid());
+	//end working day
+	while (operatore->current_day != temp_current_day+1) {sleep(1);}
+
+	//LOG_WARN("[Operatore %d] IS BACK AT WORK\n", getpid());
+
 }

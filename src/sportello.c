@@ -19,7 +19,8 @@ int main(int argc, char **argv) {
     signal(SIGTERM, handle_sigterm);
     load_config("config/config.json");
 
-    if (argc != 2) {
+
+    if (argc < 2) {
         LOG_ERR("Usage: %s <sportello service>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
@@ -37,7 +38,7 @@ int main(int argc, char **argv) {
     int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
     TicketSystem *tickets = (TicketSystem *)attach_shared_memory(shmid_erogatore, "Erogatore");
 
-    // Read sportello service from argument
+    // get the counter(sportello) number from argument passed on command
     int sportello_index = atoi(argv[1]);
 
     sportello->service_type[sportello_index] = rand() % NUM_SERVICES; // assign random service

@@ -11,6 +11,12 @@
 
 // Function to create shared memory and return shmid
 int create_shared_memory(key_t key, size_t size, const char *name) {
+
+    //printf("[DEBUG] Requesting SHM for %s: size = %zu\n", name, size);
+    int existing_shmid = shmget(SHM_KEY, 0, 0666);
+    if (existing_shmid != -1) {
+        shmctl(existing_shmid, IPC_RMID, NULL);
+    }
     int shmid = shmget(key, size, IPC_CREAT | 0666);
     if (shmid == -1) {
         LOG_ERR("[%s] shared memory creation failed: ", name);
