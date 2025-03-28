@@ -21,7 +21,6 @@ void handle_sigterm(int sig) {
 
 int main(int argc, char *argv[]) {
 
-
 	signal(SIGTERM, handle_sigterm);
 	srand(time(NULL) ^ getpid());
 
@@ -30,7 +29,7 @@ int main(int argc, char *argv[]) {
 	Direttore *direttore = (Direttore *) attach_shared_memory(shmid_direttore, "Direttore");
 
 
-	if (argc < 2) {
+	if (argc < 1) {
 		printf("arg; %s", argv[1]);
 		LOG_ERR("Usage: %s <Operatore service>\n", argv[0]);
 		exit(EXIT_FAILURE);
@@ -62,35 +61,35 @@ int main(int argc, char *argv[]) {
 	int shmid_operator = create_shared_memory(OPERATORS_SHM_KEY, sizeof(Operatore), "Operatore");
 	Operatore *operator = (Operatore *) attach_shared_memory(shmid_operator, "Operatore");
 
-	int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
-	TicketSystem *tickets = (TicketSystem *)attach_shared_memory(shmid_erogatore, "Erogatore");
+	//int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+	//TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
 
 	//allocate memory for all the workers and counters
 	operator->breaks_taken = malloc(sizeof(int));
 	operator->assigned_sportello = malloc(sizeof(int));
-	//if (operator->operators_at_job != NOF_WORKERS)
-
 
 
 	int assigned_service = -1;
-	int operatore_index = atoi(argv[1]); //the index of the operator that just joined the list of operators
+	int operatore_index = direttore->operator_count++;
+	int sportelllo_index = 0;
 	operator->assigned_sportello[operatore_index] = -1;
-
-
-	//printf("operator current day: %d", operator->current_day);
 
 
 	// Find a free counter
 	while (operator->assigned_sportello[operatore_index] == -1) {
-
 		for (int i = 0; i < NOF_WORKER_SEATS; i++) {
+			//printf("checking for worker seat %d\n", sportello->available[i]);
 			if (sportello->available[i] == 1) {
 				sportello->available[i] = 0;
 				sportello->assigned_operator[i] = getpid();
 				operator->breaks_taken[operatore_index] = 0;
 				operator->assigned_sportello[operatore_index] = i;
-				LOG_INFO("[Operatore %d] Assigned to sportello %d.\n", getpid(), operator->assigned_sportello[operatore_index]);
+				//used to track the index of the counter and the operator
+				//this will be used to stop the operator and assign the counter to another possible operator waiting in line
+				sportelllo_index = i;
+				LOG_INFO("[Operatore %d] Assigned to sportello %d.\n", getpid(),
+				         operator->assigned_sportello[operatore_index]);
 				break;
 			}
 		}
@@ -117,7 +116,6 @@ int main(int argc, char *argv[]) {
 
 
 	if (assigned_count == NOF_WORKERS) {
-
 		sportello->operatori_ready = 1;
 	}
 
@@ -125,57 +123,57 @@ int main(int argc, char *argv[]) {
 		//int found_ticket = 0;
 
 		for (int service_type = 0; service_type < NUM_SERVICES; ++service_type) {
-			if (queue->queue_size[service_type] > 0) {
-				int ticket = queue->ticket_queue[service_type][0];
 
-				lock_semaphore(service_type);
-				// Shift the queue (FIFO)
-				for (int i = 0; i < queue->queue_size[service_type] - 1; i++) {
-					queue->ticket_queue[service_type][i] = queue->ticket_queue[service_type][i + 1];
-				}
-				queue->queue_size[service_type]--;
-				unlock_semaphore(service_type);
+			lock_semaphore(service_type);
+			for (int j = 0; j < queue->queue_size[service_type]; j++) {
 
-				int service_time = SERVICE_TIME[service_type] + (rand() % 5 - 2);
-				LOG_INFO("[Operatore %d] Serving ticket %d for Service: [%s] (Expected time: %d min)\n",
-				         getpid(), ticket, SERVICE_NAMES[service_type], service_time);
+					int ticket = queue->ticket_queue[service_type][j];
 
-				sleep(service_time);
+					if (ticket == -1) continue;  // Skip already served
 
-				tickets->client_served[service_type][queue->ticket_queue[service_type][0]] = 1;
-				LOG_INFO("[Operatore %d] Finished serving ticket %d for Service: [%s] at sportello %d.\n",
-				         getpid(), ticket, SERVICE_NAMES[service_type], operator->assigned_sportello[operatore_index]);
+					int service_time = SERVICE_TIME[service_type] + (rand() % 5 - 2);
+					LOG_INFO("[Operatore %d] Serving ticket %d for Service: [%s] (Expected time: %d min)\n",
+					         getpid(), ticket, SERVICE_NAMES[service_type], service_time);
 
-				//found_ticket = 1;
+					sleep(service_time);
 
-				//printf("random value: %d", (rand() % 10));
-				//printf("breaks_taken: %d", operator->breaks_taken[operatore_index]);
-				//printf("NOF_PAUSES: %d", NOF_PAUSE);
-				if (operator->breaks_taken[operatore_index] < NOF_PAUSE && (rand() % 150) < BREAK_PROBABILITY) {
+					queue->ticket_queue[service_type][j] = -1; //signing the ticket as served
 
-					take_break(operator, operatore_index);
-					//int duration = rand() % 3 + 2;  // 2–4 simulated minutes
-					//LOG_WARN("[Operatore %d] Taking break #%d for %d minutes", getpid(), operator->breaks_taken[operatore_index] + 1, duration);
-					//sleep(duration); // simulate break
-					//operator->breaks_taken[operatore_index]++;
-				}
-				break; // Handle one ticket per loop
+					LOG_INFO("[Operatore %d] Finished serving ticket %d for Service: [%s] at sportello %d.\n",
+					         getpid(), ticket, SERVICE_NAMES[service_type], operator->assigned_sportello[operatore_index]);
+
+
+					if (operator->breaks_taken[operatore_index] < NOF_PAUSE && (rand() % 50) < BREAK_PROBABILITY) {
+						free_counter(sportello, operator, sportelllo_index, operatore_index);
+						take_break(operator, operatore_index);
+					}
+					break; // Handle one ticket per loop
 			}
+			unlock_semaphore(service_type);
 		}
 
-
+		sleep(1);
 	}
+
 }
 
 void take_break(Operatore *operatore, int index) {
-
 	int temp_current_day = operatore->current_day;
 
 	operatore->breaks_taken[index]++;
+
 	LOG_WARN("[Operatore %d] IS TAKING A BREAK\n", getpid());
 	//end working day
-	while (operatore->current_day != temp_current_day+1) {sleep(1);}
+	while (operatore->current_day != temp_current_day + 1) { sleep(1); }
 
 	//LOG_WARN("[Operatore %d] IS BACK AT WORK\n", getpid());
+}
 
+void free_counter(SportelloStatus *sportello, Operatore *operatore, int sportello_index, int operatore_index) {
+	sportello->available[sportello_index] = 1;
+	sportello->assigned_operator[sportello_index] = -1;
+	operatore->assigned_sportello[operatore_index] = -1;
+
+	//printf("Operatore [%d] took a break, THE SPORTELLO %d is AVAILABLE AGAIN  \n", getpid(),
+	       //sportello->available[sportello_index]);
 }

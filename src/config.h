@@ -11,6 +11,7 @@
 
 #define NUM_SERVICES 6 // number of services provided
 #define MAX_SPORTELLI 5 // maximum number of counters
+#define MAX_CLIENT_FOR_SERVICE 10
 
 #define SHM_KEY 1234  // shared Memory Key
 #define MSG_KEY 5678  // message Queue Key
@@ -68,7 +69,7 @@ typedef struct {
 // structure for user queue
 typedef struct {
 
-    int ticket_queue[NUM_SERVICES][10]; // Queue for each service (max 10 users per service)
+    int ticket_queue[NUM_SERVICES][MAX_CLIENT_FOR_SERVICE]; // Queue for each service (max 10 users per service)
     int queue_size[NUM_SERVICES]; // Number of users waiting per service
     int served[MAX_CLIENTS];
 } WaitingQueue;

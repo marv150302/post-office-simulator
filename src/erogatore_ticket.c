@@ -19,6 +19,8 @@ void handle_sigterm(int sig) {
 }
 
 int main() {
+
+	load_config("config/config.json");
 	signal(SIGTERM, handle_sigterm);
 
 	// Create and attach shared memory for ticket system

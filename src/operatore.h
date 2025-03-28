@@ -6,6 +6,7 @@
 #define OPERATORE_H
 
 #include "config.h"
+#include "sportello.h"
 
 #define OPERATORS_SHM_KEY 1503
 typedef struct  {
@@ -16,5 +17,6 @@ typedef struct  {
 }Operatore;
 
 
+void free_counter(SportelloStatus *sportello, Operatore* operatore,  int sportello_index, int operatore_index);
 void take_break(Operatore *operatore, int index);
 #endif //OPERATORE_H

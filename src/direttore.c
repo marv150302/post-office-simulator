@@ -23,7 +23,6 @@ int main() {
 	srand(time(NULL) ^ getpid());
 
 
-
 	clean_shared_memory(SPORTELLO_SHM_KEY);// clean shared sportello memory
 	clean_shared_memory(QUEUE_SHM_KEY);// clean shared queue memory
 	clean_message_queue(MSG_KEY); // Remove message queue
@@ -167,6 +166,7 @@ void initialize_all_semaphores(void) {
 
 
 pid_t start_process(const char *name, const char *path, int arg, Direttore* direttore) {
+
 	pid_t pid = fork();
 	if (pid < 0) {
 		LOG_ERR("Fork failed\n");
@@ -183,8 +183,6 @@ pid_t start_process(const char *name, const char *path, int arg, Direttore* dire
 	if (direttore->child_proc_count < MAX_CHILDREN) {
 		direttore->child_pids[direttore->child_proc_count++] = pid;
 	}
-
-	printf("child size: %d" , direttore->child_proc_count);
 
 	return pid;
 }
