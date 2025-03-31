@@ -41,13 +41,12 @@ int main(int argc, char *argv[]) {
 		LOG_WARN("Client Launched manually from terminal");
 		// Save PID
 		if (direttore->child_proc_count < MAX_CHILDREN) {
+
+			lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 			direttore->child_pids[direttore->child_proc_count++] = getpid();
+			lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		}
 	}
-
-
-	int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
-	TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
 	// Attach to shared queue memory
 	int shmid = shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666);
@@ -79,11 +78,11 @@ int main(int argc, char *argv[]) {
 
 	LOG_INFO("[Utente %d] Requesting ticket for Service: [%s]\n", getpid(), SERVICE_NAMES[service_type]);
 
-	TicketRequest req;
+	TicketMessage req;
 	req.msg_type = 10;
 	req.service_type = service_type;
 
-	if (msgsnd(msgid_send, &req, sizeof(TicketRequest) - sizeof(long), 0) == -1) {
+	if (msgsnd(msgid_send, &req, sizeof(TicketMessage) - sizeof(long), 0) == -1) {
 		LOG_ERR("Message send failed");
 		exit(EXIT_FAILURE);
 	}
@@ -106,21 +105,14 @@ int main(int argc, char *argv[]) {
 
 	// add ticket to queue
 	lock_semaphore(service_type);
+
 	int pos = queue->queue_size[service_type];
 	queue->ticket_queue[service_type][pos] = msg.ticket_number;
-	//printf("queue->ticket_queue[service_type][pos]: %d \n", queue->ticket_queue[service_type][pos]);
 	queue->queue_size[service_type]++;
-	queue->ticket_queue[service_type][0]++;
-
-	tickets->client_served[service_type][queue->ticket_queue[service_type][0]] = 0;
-
-	//
 	queue->served[direttore->client_count++] = 0;
-	//direttore->client_count++;
-	//
+
 	unlock_semaphore(service_type);
 
-	//printf("client ticket : %d ", tickets->client_served[service_type][queue->ticket_queue[service_type][0]]);
 	LOG_INFO("[Utente %d] Waiting in line for Service: [%s]\n", getpid(), SERVICE_NAMES[service_type]);
 
 
@@ -129,7 +121,7 @@ int main(int argc, char *argv[]) {
 		sleep(1);
 	} //let the client wait till he's served
 
-	LOG_INFO("[Utente %d] has been served\n", getpid());
+	LOG_INFO("[Utente %d] HAS BEEN SERVED\n", getpid());
 
 	//i need to add the case where a client has another service requirment
 	shmdt(queue);

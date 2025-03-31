@@ -131,10 +131,12 @@ void start_all_processes(Direttore* direttore) {
 	}
 
 	//waiting for all the operators to be at the counter
+	//lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	while (sportello->operatori_ready != 1) {
 		LOG_INFO("Waiting for operatori to be assigned...\n");
 		sleep(1);
 	}
+	//unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	LOG_INFO("All operators assigned. Starting user processes...\n");
 
 	/************ intialize all customers *****************+*/ /****************************************+*/
@@ -151,17 +153,27 @@ void kill_all_processes(Direttore* direttore) {
 
 void cleanup_all_semaphores(void) {
 
+	//cleanup the service semaphores
 	for (int i = 0; i < NUM_SERVICES; i++) {
 		cleanup_semaphores(i);
 	}
+	cleanup_semaphores(OPERATORE_SEMAPHORE_KEY);
+	cleanup_semaphores(QUEUE_SEMAPHORE_KEY);
+	cleanup_semaphores(SPORTELLO_SHM_KEY);
+	cleanup_semaphores(DIRETTORE_SEMAPHORE_KEY);
 }
 
 void initialize_all_semaphores(void) {
 
-	//initialize semaphores
+	//initialize service semaphores
 	for (int i = 0; i < NUM_SERVICES; i++) {
 		initialize_semaphores(i);
 	}
+
+	initialize_semaphores(OPERATORE_SEMAPHORE_KEY);
+	initialize_semaphores(QUEUE_SEMAPHORE_KEY);
+	initialize_semaphores(SPORTELLO_SEMAPHORE_KEY);
+	initialize_semaphores(DIRETTORE_SEMAPHORE_KEY);
 }
 
 
@@ -181,7 +193,10 @@ pid_t start_process(const char *name, const char *path, int arg, Direttore* dire
 
 	// Save PID
 	if (direttore->child_proc_count < MAX_CHILDREN) {
+
+		lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		direttore->child_pids[direttore->child_proc_count++] = pid;
+		unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 	}
 
 	return pid;

@@ -66,6 +66,8 @@ int main(int argc, char *argv[]) {
 
 
 	//allocate memory for all the workers and counters
+	lock_semaphore(OPERATORE_SEMAPHORE_KEY);
+	lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 	operator->breaks_taken = malloc(sizeof(int));
 	operator->assigned_sportello = malloc(sizeof(int));
 
@@ -74,17 +76,26 @@ int main(int argc, char *argv[]) {
 	int operatore_index = direttore->operator_count++;
 	int sportelllo_index = 0;
 	operator->assigned_sportello[operatore_index] = -1;
-
+	unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
+	unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 
 	// Find a free counter
 	while (operator->assigned_sportello[operatore_index] == -1) {
 		for (int i = 0; i < NOF_WORKER_SEATS; i++) {
+
 			//printf("checking for worker seat %d\n", sportello->available[i]);
 			if (sportello->available[i] == 1) {
+
+				lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+				lock_semaphore(OPERATORE_SEMAPHORE_KEY);
+
+
 				sportello->available[i] = 0;
 				sportello->assigned_operator[i] = getpid();
 				operator->breaks_taken[operatore_index] = 0;
 				operator->assigned_sportello[operatore_index] = i;
+				unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+				unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
 				//used to track the index of the counter and the operator
 				//this will be used to stop the operator and assign the counter to another possible operator waiting in line
 				sportelllo_index = i;
@@ -103,20 +114,29 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
+
 	LOG_INFO("[Operatore %d] Ready to serve customers\n", getpid());
+	//LOG_ERR("bruuuhhhhhhh");
 
 
 	//check if there are too many workers
 	int assigned_count = 0;
+	printf("Assigned count %d", assigned_count);
 	for (int i = 0; i < MAX_SPORTELLI; i++) {
+
 		if (sportello->assigned_operator[i] != -1) {
 			assigned_count++;
 		}
 	}
 
 
+LOG_ERR("assigned_count %d", assigned_count);
+
 	if (assigned_count == NOF_WORKERS) {
+
+		//lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 		sportello->operatori_ready = 1;
+		//unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	}
 
 	while (running) {
@@ -124,20 +144,23 @@ int main(int argc, char *argv[]) {
 
 		for (int service_type = 0; service_type < NUM_SERVICES; ++service_type) {
 
-			lock_semaphore(service_type);
+
 			for (int j = 0; j < queue->queue_size[service_type]; j++) {
 
 					int ticket = queue->ticket_queue[service_type][j];
 
 					if (ticket == -1) continue;  // Skip already served
 
+					lock_semaphore(service_type);
 					int service_time = SERVICE_TIME[service_type] + (rand() % 5 - 2);
 					LOG_INFO("[Operatore %d] Serving ticket %d for Service: [%s] (Expected time: %d min)\n",
 					         getpid(), ticket, SERVICE_NAMES[service_type], service_time);
 
 					sleep(service_time);
 
+					lock_semaphore(QUEUE_SEMAPHORE_KEY);
 					queue->ticket_queue[service_type][j] = -1; //signing the ticket as served
+					unlock_semaphore(QUEUE_SEMAPHORE_KEY);
 
 					LOG_INFO("[Operatore %d] Finished serving ticket %d for Service: [%s] at sportello %d.\n",
 					         getpid(), ticket, SERVICE_NAMES[service_type], operator->assigned_sportello[operatore_index]);
@@ -160,7 +183,9 @@ int main(int argc, char *argv[]) {
 void take_break(Operatore *operatore, int index) {
 	int temp_current_day = operatore->current_day;
 
+	lock_semaphore(OPERATORE_SEMAPHORE_KEY);
 	operatore->breaks_taken[index]++;
+	unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
 
 	LOG_WARN("[Operatore %d] IS TAKING A BREAK\n", getpid());
 	//end working day
@@ -170,10 +195,14 @@ void take_break(Operatore *operatore, int index) {
 }
 
 void free_counter(SportelloStatus *sportello, Operatore *operatore, int sportello_index, int operatore_index) {
+
+	lock_semaphore(OPERATORE_SEMAPHORE_KEY);
+	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+
 	sportello->available[sportello_index] = 1;
 	sportello->assigned_operator[sportello_index] = -1;
 	operatore->assigned_sportello[operatore_index] = -1;
 
-	//printf("Operatore [%d] took a break, THE SPORTELLO %d is AVAILABLE AGAIN  \n", getpid(),
-	       //sportello->available[sportello_index]);
+	unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
+	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 }

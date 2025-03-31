@@ -34,6 +34,10 @@
 #define MAX_CLIENTS 50
 #define MAX_SERVICE_NAME_LEN 64 //the max length of each service name
 
+#define DIRETTORE_SEMAPHORE_KEY 100
+#define OPERATORE_SEMAPHORE_KEY 200
+#define SPORTELLO_SEMAPHORE_KEY 300
+#define QUEUE_SEMAPHORE_KEY 400
 
 // Terminal color codes
 #define COLOR_RESET   "\033[0m"
@@ -45,26 +49,6 @@
 #define LOG_INFO(fmt, ...)  printf(COLOR_GREEN "[INFO] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
 #define LOG_WARN(fmt, ...)  printf(COLOR_YELLOW "[WARN] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
 #define LOG_ERR(fmt, ...)   fprintf(stderr, COLOR_RED "[ERROR] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
-
-
-
-
-// service types
-enum ServiceType {
-    SERVICE_PACKAGE = 0,             // Invio e ritiro pacchi
-    SERVICE_LETTERS = 1,             // Invio e ritiro lettere e raccomandate
-    SERVICE_BANK = 2,                // Prelievi e versamenti Bancoposta
-    SERVICE_BILLS = 3,               // Pagamento bollettini postali
-    SERVICE_FINANCIAL_PRODUCTS = 4,  // Acquisto prodotti finanziari
-    SERVICE_JEWELRY = 5              // Acquisto orologi e braccialetti
-};
-
-
-// structure to store ticket system in shared memory
-typedef struct {
-    int ticket_number[NUM_SERVICES];  // Ticket counters per service
-    int client_served[NUM_SERVICES][MAX_CLIENTS]; //use to check if a client has been served
-} TicketSystem;
 
 // structure for user queue
 typedef struct {

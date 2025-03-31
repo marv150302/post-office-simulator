@@ -44,8 +44,8 @@ int main() {
 
 	while (running) {
 		// Wait for a user request
-		TicketRequest request;
-		if (msgrcv(msgid, &request, sizeof(TicketRequest) - sizeof(long), 10, 0) == -1) {
+		TicketMessage request;
+		if (msgrcv(msgid, &request, sizeof(TicketMessage) - sizeof(long), 10, 0) == -1) {
 			LOG_ERR("Message receive failed\n");
 			exit(EXIT_FAILURE);
 		}

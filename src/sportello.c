@@ -4,9 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
+#include "erogatore_ticket.h"
 #include <sys/shm.h>
 #include <unistd.h>
 #include <time.h>
+
+#include "semaphore_utils.h"
 
 volatile sig_atomic_t running = 1;
 
@@ -41,9 +44,11 @@ int main(int argc, char **argv) {
     // get the counter(sportello) number from argument passed on command
     int sportello_index = atoi(argv[1]);
 
+    //lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
     sportello->service_type[sportello_index] = rand() % NUM_SERVICES; // assign random service
     sportello->available[sportello_index] = 1; // mark as available
     sportello->assigned_operator[sportello_index] = -1; // no operator assigned yet
+    //unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
 
 
@@ -55,27 +60,39 @@ int main(int argc, char **argv) {
     LOG_INFO("[Sportello %d] Handling service %d.\n", getpid(), sportello->service_type[sportello_index]);
 
     if (sportello_index == NOF_WORKER_SEATS - 1) {
+
+        //lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
         sportello->sportelli_ready = 1;
+        //unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
         LOG_INFO("[Sportello %d] All sportelli are now ready!\n", sportello_index);
     }
 
     while (running) {
         // check if users are waiting for this service
-        if (queue->queue_size[sportello_index] > 0 && sportello->available[sportello_index] == 1) {
-            sportello->available[sportello_index] = 0; // Mark as busy
-            int ticket = tickets->ticket_number[sportello_index];
+        //lock_semaphore(QUEUE_SEMAPHORE_KEY);
+        if (queue->queue_size[sportello_index] > 0 ) {
 
-            LOG_INFO("[Sportello %d] Calling ticket %d for service %d.\n",
-                     getpid(), ticket, sportello_index);
+            //lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+            if ( sportello->available[sportello_index] == 1) {
 
-            // make the counter wait until it becomes available again
-            while (sportello->available[sportello_index] == 0) {
-                sleep(1);
+
+                sportello->available[sportello_index] = 0; // Mark as busy
+                //unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+
+                int ticket = tickets->ticket_number[sportello_index];
+
+                LOG_INFO("[Sportello %d] Calling ticket %d for service %d.\n",
+                         getpid(), ticket, sportello_index);
+
+                // make the counter wait until it becomes available again
+                while (sportello->available[sportello_index] == 0) {
+                    sleep(1);
+                }
+
+                LOG_INFO("[Sportello %d] Now free for the next user.\n", getpid());
             }
-
-            LOG_INFO("[Sportello %d] Now free for the next user.\n", getpid());
         }
-
+        //unlock_semaphore(QUEUE_SEMAPHORE_KEY);
         sleep(1);
     }
 
