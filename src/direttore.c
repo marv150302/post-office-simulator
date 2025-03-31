@@ -20,7 +20,13 @@ void clear_screen() {
 
 int main() {
 
+	attach_sim_time(); // for handling simulation time
+
+	sim_time->current_day = 1;
+	sim_time->current_hour = 0;
+	sim_time->current_minute = 0;
 	srand(time(NULL) ^ getpid());
+
 
 
 	clean_shared_memory(SPORTELLO_SHM_KEY);// clean shared sportello memory
@@ -61,9 +67,16 @@ int main() {
 		};
 		nanosleep(&ts, NULL);
 
+		sim_time->current_hour = (i % (24 * 60)) / 60;
+		sim_time->current_minute = (i % (24 * 60)) % 60;
 
 		if ((i + 1) % (24 * 60) == 0) {
 			int day = (i + 1) / (24 * 60);
+			sim_time->current_day = day;
+			sim_time->current_hour = (total_minutes % (24 * 60)) / 60;
+			sim_time->current_minute = (total_minutes % (24 * 60)) % 60;
+
+
 			//clear_screen();
 			LOG_WARN("\033[1;33m\n\n ========================================== SIMULATION DAY %d ENDED ====================================================================  \n\n\033[0m", day);
 
@@ -118,10 +131,18 @@ void start_all_processes(Direttore* direttore) {
 		//assigning the operator to the counter
 		start_process("sportello", "./bin/sportello", i, direttore);
 	}
+	sportello->assigned_operator_count = 0;
 
-	while (sportello->sportelli_ready != 1) {
-		LOG_INFO("Waiting for sportelli to initialize...\n");
-		sleep(1);
+	int ready_sportello = 0;
+	while (!ready_sportello) {
+
+		lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+		ready_sportello = sportello->sportelli_ready;
+		unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+		if (!ready_sportello) {
+			LOG_INFO("Waiting for sportelli to initialize...\n");
+			sleep(1);
+		}
 	}
 	LOG_INFO("All sportelli initialized. Starting operatore processes...\n");
 
@@ -132,9 +153,15 @@ void start_all_processes(Direttore* direttore) {
 
 	//waiting for all the operators to be at the counter
 	//lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
-	while (sportello->operatori_ready != 1) {
-		LOG_INFO("Waiting for operatori to be assigned...\n");
-		sleep(1);
+	int ready_operatore = 0;
+	while (!ready_operatore) {
+		lock_semaphore(OPERATORE_SEMAPHORE_KEY);
+		ready_operatore = sportello->operatori_ready;
+		unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
+		if (!ready_operatore) {
+			LOG_INFO("Waiting for Operatori to initialize...\n");
+			sleep(1);
+		}
 	}
 	//unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	LOG_INFO("All operators assigned. Starting user processes...\n");
@@ -159,7 +186,7 @@ void cleanup_all_semaphores(void) {
 	}
 	cleanup_semaphores(OPERATORE_SEMAPHORE_KEY);
 	cleanup_semaphores(QUEUE_SEMAPHORE_KEY);
-	cleanup_semaphores(SPORTELLO_SHM_KEY);
+	cleanup_semaphores(SPORTELLO_SEMAPHORE_KEY);
 	cleanup_semaphores(DIRETTORE_SEMAPHORE_KEY);
 }
 
@@ -183,7 +210,8 @@ pid_t start_process(const char *name, const char *path, int arg, Direttore* dire
 	if (pid < 0) {
 		LOG_ERR("Fork failed\n");
 		exit(EXIT_FAILURE);
-	} else if (pid == 0) {
+	}
+	if (pid == 0) {
 		char arg_str[10];
 		snprintf(arg_str, sizeof(arg_str), "%d", arg);
 		execl(path, name, arg_str,"--from-direttore", NULL);

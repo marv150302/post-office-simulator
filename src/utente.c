@@ -15,6 +15,7 @@
 int main(int argc, char *argv[]) {
 
 
+	attach_sim_time();
 	srand(time(NULL) ^ getpid());
 
 	load_config("config/config.json");

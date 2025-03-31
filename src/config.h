@@ -7,6 +7,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/msg.h>
+#include "shared_time.h"
 #include "../libs/cJSON/cJSON.h"
 
 #define NUM_SERVICES 6 // number of services provided
@@ -39,6 +40,10 @@
 #define SPORTELLO_SEMAPHORE_KEY 300
 #define QUEUE_SEMAPHORE_KEY 400
 
+#define SIM_TIME_FMT "[Day %02d - %02d:%02d] "
+#define SIM_TIME_ARGS(i) ((i) / (24 * 60) + 1), (((i) / 60) % 24), ((i) % 60)
+
+
 // Terminal color codes
 #define COLOR_RESET   "\033[0m"
 #define COLOR_RED     "\033[1;31m"
@@ -46,9 +51,35 @@
 #define COLOR_YELLOW  "\033[1;33m"
 
 
-#define LOG_INFO(fmt, ...)  printf(COLOR_GREEN "[INFO] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
-#define LOG_WARN(fmt, ...)  printf(COLOR_YELLOW "[WARN] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
-#define LOG_ERR(fmt, ...)   fprintf(stderr, COLOR_RED "[ERROR] " fmt COLOR_RESET "\n", ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...) \
+do { \
+if (sim_time == NULL) attach_sim_time(); \
+printf(COLOR_GREEN "[INFO] [Day %02d - %02d:%02d] " fmt COLOR_RESET "\n", \
+sim_time ? sim_time->current_day : 0, \
+sim_time ? sim_time->current_hour : 0, \
+sim_time ? sim_time->current_minute : 0, \
+##__VA_ARGS__); \
+} while (0)
+
+#define LOG_WARN(fmt, ...) \
+do { \
+if (sim_time == NULL) attach_sim_time(); \
+printf(COLOR_YELLOW "[WARN] [Day %02d - %02d:%02d] " fmt COLOR_RESET "\n", \
+sim_time ? sim_time->current_day : 0, \
+sim_time ? sim_time->current_hour : 0, \
+sim_time ? sim_time->current_minute : 0, \
+##__VA_ARGS__); \
+} while (0)
+
+#define LOG_ERR(fmt, ...) \
+do { \
+if (sim_time == NULL) attach_sim_time(); \
+fprintf(stderr, COLOR_RED "[ERROR] [Day %02d - %02d:%02d] " fmt COLOR_RESET "\n", \
+sim_time ? sim_time->current_day : 0, \
+sim_time ? sim_time->current_hour : 0, \
+sim_time ? sim_time->current_minute : 0, \
+##__VA_ARGS__); \
+} while (0)
 
 // structure for user queue
 typedef struct {
@@ -57,6 +88,7 @@ typedef struct {
     int queue_size[NUM_SERVICES]; // Number of users waiting per service
     int served[MAX_CLIENTS];
 } WaitingQueue;
+
 
 
 // (will be set by `load_config()`)

@@ -20,6 +20,7 @@ void handle_sigterm(int sig) {
 
 int main() {
 
+	attach_sim_time();
 	load_config("config/config.json");
 	signal(SIGTERM, handle_sigterm);
 

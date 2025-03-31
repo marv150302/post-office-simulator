@@ -14,6 +14,7 @@ typedef struct {
     int assigned_operator[MAX_SPORTELLI];
     int sportelli_ready; //flag to indicate if the counter is ready
     int operatori_ready; //flag to indicate if the operator is ready at the counter
+    int assigned_operator_count;
 } SportelloStatus;
 
 #endif //SPORTELLO_H

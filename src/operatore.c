@@ -21,6 +21,8 @@ void handle_sigterm(int sig) {
 
 int main(int argc, char *argv[]) {
 
+	attach_sim_time();
+
 	signal(SIGTERM, handle_sigterm);
 	srand(time(NULL) ^ getpid());
 
@@ -116,42 +118,28 @@ int main(int argc, char *argv[]) {
 
 
 	LOG_INFO("[Operatore %d] Ready to serve customers\n", getpid());
-	//LOG_ERR("bruuuhhhhhhh");
 
 
-	//check if there are too many workers
-	int assigned_count = 0;
-	printf("Assigned count %d", assigned_count);
-	for (int i = 0; i < MAX_SPORTELLI; i++) {
-
-		if (sportello->assigned_operator[i] != -1) {
-			assigned_count++;
-		}
-	}
-
-
-LOG_ERR("assigned_count %d", assigned_count);
-
-	if (assigned_count == NOF_WORKERS) {
-
-		//lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+	sportello->assigned_operator_count++;
+	if (sportello->assigned_operator_count == NOF_WORKERS) {
 		sportello->operatori_ready = 1;
-		//unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	}
+	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
 	while (running) {
 		//int found_ticket = 0;
 
 		for (int service_type = 0; service_type < NUM_SERVICES; ++service_type) {
 
-
+			lock_semaphore(service_type);
 			for (int j = 0; j < queue->queue_size[service_type]; j++) {
 
 					int ticket = queue->ticket_queue[service_type][j];
 
 					if (ticket == -1) continue;  // Skip already served
 
-					lock_semaphore(service_type);
+
 					int service_time = SERVICE_TIME[service_type] + (rand() % 5 - 2);
 					LOG_INFO("[Operatore %d] Serving ticket %d for Service: [%s] (Expected time: %d min)\n",
 					         getpid(), ticket, SERVICE_NAMES[service_type], service_time);
@@ -189,7 +177,10 @@ void take_break(Operatore *operatore, int index) {
 
 	LOG_WARN("[Operatore %d] IS TAKING A BREAK\n", getpid());
 	//end working day
-	while (operatore->current_day != temp_current_day + 1) { sleep(1); }
+	int timeout = 300; // max wait 5 minutes in case direttore crashes or the current day isn't updated
+	while (operatore->current_day != temp_current_day + 1 && timeout-- > 0) {
+		sleep(1);
+	}
 
 	//LOG_WARN("[Operatore %d] IS BACK AT WORK\n", getpid());
 }

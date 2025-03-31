@@ -19,6 +19,8 @@ typedef struct {
 	int client_count; //number of clients
 } Direttore;
 
+
+
 //function to create and start a process
 pid_t start_process(const char *name, const char *path, int arg, Direttore* direttore);
 //helper function to start all processes
