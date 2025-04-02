@@ -51,6 +51,7 @@ int main() {
 			exit(EXIT_FAILURE);
 		}
 
+
 		int service_type = request.service_type;
 		int ticket_number = tickets->ticket_number[service_type]++;
 
@@ -60,10 +61,12 @@ int main() {
 		if (estimated_time < 1) estimated_time = 1;
 
 		// Create and send ticket message
-		TicketMessage msg;
-		msg.msg_type = service_type + 1;
+		TicketMessage msg = {0};
 		msg.ticket_number = ticket_number;
 		msg.estimated_time = estimated_time;
+		msg.msg_type = request.pid;
+		msg.pid = request.pid;
+
 
 		if (msgsnd(msgid, &msg, sizeof(TicketMessage) - sizeof(long), 0) == -1) {
 			LOG_ERR("Message send failed\n");
@@ -73,7 +76,7 @@ int main() {
 		LOG_INFO("[Erogatore] Issued ticket %d for Service: [%s] (Estimated time: %d min)\n",
 		         ticket_number, SERVICE_NAMES[service_type], estimated_time);
 
-		sleep(1);
+		usleep(100 * 1000); // 100ms sleep
 	}
 
 	shmdt(tickets);

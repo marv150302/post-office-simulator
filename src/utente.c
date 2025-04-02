@@ -46,35 +46,40 @@ int main(int argc, char *argv[]) {
 
 
 			direttore->child_pids[direttore->child_proc_count++] = getpid();
-			unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
+			//unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		}
+		unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 	}
 
-	// Attach to shared queue memory
-	int shmid = shmget(QUEUE_SHM_KEY, sizeof(WaitingQueue), 0666);
-	if (shmid == -1) {
-		LOG_ERR("Shared memory for queue access failed");
-		exit(EXIT_FAILURE);
-	}
+	int shmid_queue = create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "WaitingQueue");
+	WaitingQueue *queue = (WaitingQueue *) attach_shared_memory(shmid_queue, "WaitingQueue");
 
-	WaitingQueue *queue = (WaitingQueue *) shmat(shmid, NULL, 0);
-	if (queue == (void *) -1) {
-		LOG_ERR("Shared memory for queue attach failed");
-		exit(EXIT_FAILURE);
-	}
+	int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+	TicketSystem *ticket_machine = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
 	// randomly select a service
 	int service_type = rand() % NUM_SERVICES;
 
-	if (queue->queue_size[service_type] >= MAX_CLIENTS) {
+
+	lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
+	if (direttore->client_count >= MAX_CLIENTS) {
+		LOG_ERR("[Utente %d] MAX_CLIENTS (%d) reached. Exiting...\n", getpid(), MAX_CLIENTS);
+		unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
+		exit(EXIT_FAILURE);
+	}
+	int client_index = direttore->client_count++;
+	unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
+
+	if (queue->queue_size[service_type] >= MAX_CLIENT_FOR_SERVICE) {
 		LOG_WARN("[Utente %d] Queue for service %d is full. Exiting...\n", getpid(), service_type);
+		shmdt(queue);
 		return EXIT_FAILURE;
 	}
 
 	// request ticket
-	int msgid_send = msgget(MSG_KEY, 0666);
-	if (msgid_send == -1) {
-		LOG_ERR("Message get failed for Client");
+	int msgid = msgget(MSG_KEY, 0666);
+	if (msgid == -1) {
+		LOG_ERR("Message get failed for [CLIENT]");
 		exit(EXIT_FAILURE);
 	}
 
@@ -83,35 +88,48 @@ int main(int argc, char *argv[]) {
 	TicketMessage req;
 	req.msg_type = 10;
 	req.service_type = service_type;
+	req.pid = getpid();
 
-	if (msgsnd(msgid_send, &req, sizeof(TicketMessage) - sizeof(long), 0) == -1) {
+	if (msgsnd(msgid, &req, sizeof(TicketMessage) - sizeof(long), 0) == -1) {
 		LOG_ERR("Message send failed");
 		exit(EXIT_FAILURE);
 	}
 
+
+	// int in_use = tickets->in_use;
+	while (ticket_machine->in_use==1) {
+
+		sleep(1);
+	}
+
+	ticket_machine->in_use = 1;
+
+
 	// Receive ticket response
-	int msgid = msgget(MSG_KEY, 0666);
-	if (msgid == -1) {
-		LOG_ERR("Message queue access failed");
+	TicketMessage msg;
+	if (msgrcv(msgid, &msg, sizeof(TicketMessage) - sizeof(long), getpid(), 0) == -1) {
+		LOG_ERR("Ticket retrieval failed for [UTENTE %d]", getpid());
 		exit(EXIT_FAILURE);
 	}
 
-	TicketMessage msg;
-	if (msgrcv(msgid, &msg, sizeof(TicketMessage) - sizeof(long), service_type + 1, 0) == -1) {
-		LOG_ERR("Message receive failed");
-		exit(EXIT_FAILURE);
-	}
 
 	LOG_INFO("[Utente %d] Received Ticket: %d for Service: [%s] (Estimated time: %d min)\n",
 	         getpid(), msg.ticket_number, SERVICE_NAMES[service_type], msg.estimated_time);
+
+	ticket_machine->in_use = 0; //reset the usage of the ticket machine
 
 	// add ticket to queue
 	lock_semaphore(service_type);
 
 	int pos = queue->queue_size[service_type];
+	if (pos >= MAX_CLIENT_FOR_SERVICE) {
+		LOG_ERR("[Utente %d] Queue position overflow for service %d", getpid(), service_type);
+		shmdt(queue);
+		exit(EXIT_FAILURE);
+	}
 	queue->ticket_queue[service_type][pos] = msg.ticket_number;
 	queue->queue_size[service_type]++;
-	queue->served[direttore->client_count++] = 0;
+	queue->served[client_index] = 0;
 
 	unlock_semaphore(service_type);
 
@@ -127,5 +145,7 @@ int main(int argc, char *argv[]) {
 
 	//i need to add the case where a client has another service requirment
 	shmdt(queue);
+	shmdt(direttore);
+	shmdt(ticket_machine);
 	return 0;
 }

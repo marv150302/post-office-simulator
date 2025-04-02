@@ -15,7 +15,7 @@ SharedTime *sim_time = NULL;
 void attach_sim_time(void) {
 	if (sim_time != NULL) return; // already attached
 
-	int shmid = shmget(SHARED_TIME_KEY, sizeof(SharedTime), 0666);
+	int shmid = shmget(SHARED_TIME_KEY, sizeof(SharedTime),  0666 | IPC_CREAT);
 	if (shmid == -1) {
 		perror("[SharedTime] Failed to get shared memory");
 		exit(EXIT_FAILURE);

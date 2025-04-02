@@ -7,12 +7,15 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/msg.h>
+#include <unistd.h>
+#include <time.h>
 #include "shared_time.h"
 #include "../libs/cJSON/cJSON.h"
 
+#define SIM_MINUTE_REAL_SECONDS 0.1  // 1 simulated minute = 0.1 real seconds
 #define NUM_SERVICES 6 // number of services provided
 #define MAX_SPORTELLI 5 // maximum number of counters
-#define MAX_CLIENT_FOR_SERVICE 10
+
 
 #define SHM_KEY 1234  // shared Memory Key
 #define MSG_KEY 5678  // message Queue Key
@@ -32,13 +35,18 @@
 #define DEFAULT_P_SERV_MAX 0.8
 #define DEFAULT_EXPLODE_THRESHOLD 50
 #define DEFAULT_NOF_PAUSE 2
-#define MAX_CLIENTS 50
+
+
+#define MAX_CLIENTS 600
+#define MAX_CLIENT_FOR_SERVICE 100
+
 #define MAX_SERVICE_NAME_LEN 64 //the max length of each service name
 
 #define DIRETTORE_SEMAPHORE_KEY 100
 #define OPERATORE_SEMAPHORE_KEY 200
 #define SPORTELLO_SEMAPHORE_KEY 300
 #define QUEUE_SEMAPHORE_KEY 400
+#define SIM_TIME_SEMAPHORE_KEY 500
 
 #define SIM_TIME_FMT "[Day %02d - %02d:%02d] "
 #define SIM_TIME_ARGS(i) ((i) / (24 * 60) + 1), (((i) / 60) % 24), ((i) % 60)
@@ -71,7 +79,7 @@ typedef struct {
     int served[MAX_CLIENTS];
 } WaitingQueue;
 
-
+void sleep_sim_minutes(double sim_minutes);
 
 // (will be set by `load_config()`)
 extern int NOF_WORKERS;
@@ -92,5 +100,5 @@ extern int SERVICE_TIME[NUM_SERVICES];
 
 void load_config(const char *filename);
 void load_services(cJSON *root);
-
+void sleep_sim_minutes(double sim_minutes);
 #endif // CONFIG_H
