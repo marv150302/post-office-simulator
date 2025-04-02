@@ -9,7 +9,7 @@
 
 //to track the children processes
 #define MAX_CHILDREN 100
-#define DIRETTORE_KEY 5678  // message Queue Key
+#define DIRETTORE_SHM_KEY 5678  // message Queue Key
 
 typedef struct {
 

@@ -12,7 +12,10 @@
 #include "shared_time.h"
 #include "../libs/cJSON/cJSON.h"
 
-#define SIM_MINUTE_REAL_SECONDS 0.1  // 1 simulated minute = 0.1 real seconds
+
+#define OPENING_HOUR 8 //the post office opening hour
+#define CLOSING_HOUR 20//the post office closing hour
+
 #define NUM_SERVICES 6 // number of services provided
 #define MAX_SPORTELLI 5 // maximum number of counters
 

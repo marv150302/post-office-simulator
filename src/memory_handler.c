@@ -4,7 +4,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <sys/ipc.h>
+#include <string.h>
 #include <sys/shm.h>
 #include "memory_handler.h"
 #include "config.h"  // Include your logging macros if not globally included
@@ -12,18 +14,18 @@
 // Function to create shared memory and return shmid
 int create_shared_memory(key_t key, size_t size, const char *name) {
 
+
     //printf("[DEBUG] Requesting SHM for %s: size = %zu\n", name, size);
-    int existing_shmid = shmget(SHM_KEY, 0, 0666);
+    int existing_shmid = shmget(key, 0, 0666);
     if (existing_shmid != -1) {
         shmctl(existing_shmid, IPC_RMID, NULL);
     }
-    int shmid = shmget(key, size, IPC_CREAT | 0666);
-    if (shmid == -1) {
-        LOG_ERR("[%s] shared memory creation failed: ", name);
-        perror("");
+    int shm_id = shmget(key, size, IPC_CREAT | IPC_EXCL | 0666);
+    if (shm_id == -1) {
+        LOG_ERR("shared memory creation failed for [%s] : %s",name, strerror(errno));
         exit(EXIT_FAILURE);
     }
-    return shmid;
+    return shm_id;
 }
 
 // Function to attach shared memory and return pointer
@@ -57,11 +59,31 @@ void remove_shared_memory(int shmid) {
 }
 
 //function for cleaning the shared memory
-void clean_shared_memory(int key) {
-
+void clean_shared_memory(int key, const char* name) {
     int shmid = shmget(key, 0, 0666);
-    if (shmid != -1) shmctl(shmid, IPC_RMID, NULL);
+    if (shmid == -1) {
+        LOG_WARN("No shared memory found for key: %s", name);
+        return;
+    }
+
+    if (shmctl(shmid, IPC_RMID, NULL) == -1) {
+        perror("shmctl IPC_RMID failed");
+    } else {
+        LOG_WARN("Shared memory removed successfully (NAME: %s).", name);
+    }
 }
+int get_shared_memory(key_t key, const char *name){
+
+
+  int shmid = shmget(key, 0, 0666);
+    if (shmid == -1) {
+        LOG_ERR("[%s] Failed to get shared memory", name);
+        perror("");
+        exit(EXIT_FAILURE);
+    }
+  return shmid;
+}
+
 
 void clean_message_queue(int key) {
 

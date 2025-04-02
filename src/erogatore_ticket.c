@@ -25,7 +25,7 @@ int main() {
 	signal(SIGTERM, handle_sigterm);
 
 	// Create and attach shared memory for ticket system
-	int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+	int shmid_erogatore = get_shared_memory(SHM_KEY, "Erogatore");
 	TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
 	srand(time(NULL) ^ getpid());

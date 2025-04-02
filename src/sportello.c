@@ -32,15 +32,15 @@ int main(int argc, char **argv) {
 	srand(time(NULL) ^ getpid());
 
 	// Create and attach Sportello shared memory
-	int shmid_sportello = create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
+	int shmid_sportello = get_shared_memory(SPORTELLO_SHM_KEY, "Sportello");
 	SportelloStatus *sportello = (SportelloStatus *) attach_shared_memory(shmid_sportello, "Sportello");
-	LOG_INFO("[Sportello %d] Shared Sportello address: %p", getpid(), sportello);
-	// Create and attach waiting queue shared memory
-	int shmid_queu = create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "WaitingQueue");
-	WaitingQueue *queue = (WaitingQueue *) attach_shared_memory(shmid_queu, "WaitingQueue");
 
-	int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
-	TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
+	// Create and attach waiting queue shared memory
+	//int shmid_queu = create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "WaitingQueue");
+	//WaitingQueue *queue = (WaitingQueue *) attach_shared_memory(shmid_queu, "WaitingQueue");
+
+	//int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+	//TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
 	// get the counter(sportello) number from argument passed on command
 	int sportello_index = atoi(argv[1]);
@@ -48,10 +48,11 @@ int main(int argc, char **argv) {
 
 
 	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
-	sportello->service_type[sportello_index] = rand() % NUM_SERVICES; // assign random service
+	int service = rand() % NUM_SERVICES;
+	sportello->service_type[sportello_index] = service; // assign random service
 	sportello->available[sportello_index] = 1; // mark as available
 	sportello->assigned_operator[sportello_index] = -1; // no operator assigned yet
-
+	sportello->ready[sportello_index] = 1;
 	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
 
@@ -61,27 +62,28 @@ int main(int argc, char **argv) {
 	}
 
 	//printf("sportllo index; %d \n" ,sportello_index);
-	LOG_INFO("[Sportello %d] Handling service %d.\n", getpid(), sportello->service_type[sportello_index]);
+	LOG_INFO("[Sportello %d] Handling service %d.\n", getpid(), service);
 
 
-	if (sportello_index == NOF_WORKER_SEATS - 1) {
+	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
-		lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
-		sportello->sportelli_ready = 1;
-		unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
-		LOG_INFO("[Sportello %d] All sportelli are now ready!\n", sportello_index);
-	}
+	sportello->sportelli_ready+=1;
+	int ready = sportello->sportelli_ready;  // Copy value for logging
+
+	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+
+	LOG_WARN("[Sportello %d] Sportello ready. Total ready: %d", getpid(), ready);
 
 	while (running) {
 		// check if users are waiting for this service
 		//lock_semaphore(QUEUE_SEMAPHORE_KEY);
-		if (queue->queue_size[sportello_index] > 0) {
+		/*if (queue->queue_size[service] > 0) {
 			//lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 			if (sportello->available[sportello_index] == 1) {
 				sportello->available[sportello_index] = 0; // Mark as busy
 				//unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
-				int ticket = tickets->ticket_number[sportello_index];
+				int ticket = tickets->ticket_number[service];
 
 				LOG_INFO("[Sportello %d] Calling ticket %d for service %d.\n",
 				         getpid(), ticket, sportello_index);
@@ -99,12 +101,12 @@ int main(int argc, char **argv) {
 
 				LOG_INFO("[Sportello %d] Now free for the next user.\n", getpid());
 			}
-		}
+		}*/
 		//unlock_semaphore(QUEUE_SEMAPHORE_KEY);
 		sleep(1);
 	}
 
 	shmdt(sportello);
-	shmdt(queue);
+	//shmdt(queue);
 	return 0;
 }

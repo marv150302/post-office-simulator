@@ -110,7 +110,7 @@ void load_services(cJSON *root) {
 }
 
 void sleep_sim_minutes(double sim_minutes) {
-    double real_seconds = sim_minutes * SIM_MINUTE_REAL_SECONDS;
+    double real_seconds = sim_minutes * ((double)N_NANO_SECS / 1e9);
     struct timespec ts = {
         .tv_sec = (time_t)real_seconds,
         .tv_nsec = (long)((real_seconds - (time_t)real_seconds) * 1e9)

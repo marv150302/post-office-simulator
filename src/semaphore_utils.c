@@ -2,6 +2,7 @@
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <sys/ipc.h>
 #include <sys/sem.h>
 
@@ -21,7 +22,12 @@ void lock_semaphore(int identifier) {
 	}
 
 	struct sembuf op = {0, -1, 0}; // decrement
-	if (semop(semid, &op, 1) == -1) {
+
+	while (semop(semid, &op, 1) == -1) {
+		if (errno == EINTR) {
+			LOG_WARN("lock_semaphore: interrupted by signal, retrying...");
+			continue;
+		}
 		LOG_ERR("lock_semaphore: semop failed");
 		perror("");
 		exit(EXIT_FAILURE);
@@ -64,8 +70,16 @@ void initialize_semaphores(int identifier) {
 void cleanup_semaphores(int identifier) {
 	int key = get_semaphore_key(identifier);
 	int semid = semget(key, 1, 0666);
-	if (semid != -1) {
-		semctl(semid, 0, IPC_RMID);
+	if (semid == -1) {
+		LOG_WARN("[Semaphore] No semaphore found for key %d (identifier %d)", key, identifier);
+		perror("semget");
+		return;
+	}
+
+	if (semctl(semid, 0, IPC_RMID) == -1) {
+		LOG_ERR("[Semaphore] Failed to remove semaphore for key %d (identifier %d)", key, identifier);
+		perror("semctl IPC_RMID");
+	} else {
 		LOG_INFO("[Semaphore] Cleaned up for key %d (identifier %d)", key, identifier);
 	}
 }

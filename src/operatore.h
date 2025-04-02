@@ -13,6 +13,7 @@ typedef struct  {
 
   int *breaks_taken;
   int *assigned_sportello;
+  int *service_type;
   int n_op_on_break;
 }Operatore;
 
