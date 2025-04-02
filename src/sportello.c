@@ -74,12 +74,12 @@ int main(int argc, char **argv) {
 
 	while (running) {
 		// check if users are waiting for this service
-		lock_semaphore(QUEUE_SEMAPHORE_KEY);
+		//lock_semaphore(QUEUE_SEMAPHORE_KEY);
 		if (queue->queue_size[sportello_index] > 0) {
-			lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+			//lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 			if (sportello->available[sportello_index] == 1) {
 				sportello->available[sportello_index] = 0; // Mark as busy
-				unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+				//unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
 				int ticket = tickets->ticket_number[sportello_index];
 
@@ -88,19 +88,19 @@ int main(int argc, char **argv) {
 
 				// make the counter wait until it becomes available again
 				while (1) {
-					lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+					//lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 					if (sportello->available[sportello_index]) {
-						unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+						//unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 						break;
 					}
-					unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+					//unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 					sleep(1);
 				}
 
 				LOG_INFO("[Sportello %d] Now free for the next user.\n", getpid());
 			}
 		}
-		unlock_semaphore(QUEUE_SEMAPHORE_KEY);
+		//unlock_semaphore(QUEUE_SEMAPHORE_KEY);
 		sleep(1);
 	}
 

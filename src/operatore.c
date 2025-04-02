@@ -144,23 +144,26 @@ int main(int argc, char *argv[]) {
 					LOG_INFO("[Operatore %d] Serving ticket %d for Service: [%s] (Expected time: %d min)\n",
 					         getpid(), ticket, SERVICE_NAMES[service_type], service_time);
 
+					unlock_semaphore(service_type);
 					sleep(service_time);
 
-					lock_semaphore(QUEUE_SEMAPHORE_KEY);
+					//lock_semaphore(QUEUE_SEMAPHORE_KEY);
 					queue->ticket_queue[service_type][j] = -1; //signing the ticket as served
 					unlock_semaphore(QUEUE_SEMAPHORE_KEY);
+
 
 					LOG_INFO("[Operatore %d] Finished serving ticket %d for Service: [%s] at sportello %d.\n",
 					         getpid(), ticket, SERVICE_NAMES[service_type], operator->assigned_sportello[operatore_index]);
 
-
+					//unlock_semaphore(service_type);
 					if (operator->breaks_taken[operatore_index] < NOF_PAUSE && (rand() % 50) < BREAK_PROBABILITY) {
+
 						free_counter(sportello, operator, sportelllo_index, operatore_index);
 						take_break(operator, operatore_index);
 					}
 					break; // Handle one ticket per loop
 			}
-			unlock_semaphore(service_type);
+			//unlock_semaphore(service_type);
 		}
 
 		sleep(1);

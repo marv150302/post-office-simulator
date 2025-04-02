@@ -41,11 +41,12 @@ int main(int argc, char *argv[]) {
 	} else {
 		LOG_WARN("Client Launched manually from terminal");
 		// Save PID
+		lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		if (direttore->child_proc_count < MAX_CHILDREN) {
 
-			lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
+
 			direttore->child_pids[direttore->child_proc_count++] = getpid();
-			lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
+			unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		}
 	}
 

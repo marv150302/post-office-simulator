@@ -23,7 +23,7 @@ int main() {
 	attach_sim_time(); // for handling simulation time
 
 	sim_time->current_day = 1;
-	sim_time->current_hour = 0;
+	sim_time->current_hour = 8;
 	sim_time->current_minute = 0;
 	srand(time(NULL) ^ getpid());
 
@@ -67,9 +67,12 @@ int main() {
 		};
 		nanosleep(&ts, NULL);
 
-		sim_time->current_hour = (i % (24 * 60)) / 60;
-		sim_time->current_minute = (i % (24 * 60)) % 60;
-
+		//sim_time->current_hour = (i % (24 * 60)) / 60;
+		//sim_time->current_minute = (i % (24 * 60)) % 60;
+		int minutes_since_start = i + (8 * 60); // 8 AM
+		sim_time->current_day = (minutes_since_start / (24 * 60)) + 1;
+		sim_time->current_hour = (minutes_since_start % (24 * 60)) / 60;
+		sim_time->current_minute = (minutes_since_start % (24 * 60)) % 60;
 		if ((i + 1) % (24 * 60) == 0) {
 			int day = (i + 1) / (24 * 60);
 			sim_time->current_day = day;

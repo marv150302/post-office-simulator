@@ -52,34 +52,16 @@
 
 
 #define LOG_INFO(fmt, ...) \
-do { \
-if (sim_time == NULL) attach_sim_time(); \
 printf(COLOR_GREEN "[INFO] [Day %02d - %02d:%02d] " fmt COLOR_RESET "\n", \
-sim_time ? sim_time->current_day : 0, \
-sim_time ? sim_time->current_hour : 0, \
-sim_time ? sim_time->current_minute : 0, \
-##__VA_ARGS__); \
-} while (0)
+sim_time->current_day, sim_time->current_hour, sim_time->current_minute, ##__VA_ARGS__)
 
 #define LOG_WARN(fmt, ...) \
-do { \
-if (sim_time == NULL) attach_sim_time(); \
 printf(COLOR_YELLOW "[WARN] [Day %02d - %02d:%02d] " fmt COLOR_RESET "\n", \
-sim_time ? sim_time->current_day : 0, \
-sim_time ? sim_time->current_hour : 0, \
-sim_time ? sim_time->current_minute : 0, \
-##__VA_ARGS__); \
-} while (0)
+sim_time->current_day, sim_time->current_hour, sim_time->current_minute, ##__VA_ARGS__)
 
 #define LOG_ERR(fmt, ...) \
-do { \
-if (sim_time == NULL) attach_sim_time(); \
 fprintf(stderr, COLOR_RED "[ERROR] [Day %02d - %02d:%02d] " fmt COLOR_RESET "\n", \
-sim_time ? sim_time->current_day : 0, \
-sim_time ? sim_time->current_hour : 0, \
-sim_time ? sim_time->current_minute : 0, \
-##__VA_ARGS__); \
-} while (0)
+sim_time->current_day, sim_time->current_hour, sim_time->current_minute, ##__VA_ARGS__)
 
 // structure for user queue
 typedef struct {
