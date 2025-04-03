@@ -30,6 +30,10 @@ int main(int argc, char *argv[]) {
 	int shmid_direttore = get_shared_memory(DIRETTORE_SHM_KEY, "Direttore");
 	Direttore *direttore = (Direttore *) attach_shared_memory(shmid_direttore, "Direttore");
 
+	// Create and attach Sportello shared memory
+	int shmid_sportello = get_shared_memory(SPORTELLO_SHM_KEY, "Sportello");
+	SportelloStatus *sportello = (SportelloStatus *) attach_shared_memory(shmid_sportello, "Sportello");
+
 
 	if (argc < 1) {
 		printf("arg; %s", argv[1]);
@@ -53,9 +57,7 @@ int main(int argc, char *argv[]) {
 
 	load_config("config/config.json");
 
-	// Create and attach Sportello shared memory
-	int shmid_sportello = get_shared_memory(SPORTELLO_SHM_KEY, "Sportello");
-	SportelloStatus *sportello = (SportelloStatus *) attach_shared_memory(shmid_sportello, "Sportello");
+
 
 	// Create and attach waiting queue shared memory
 	int shmid_queue = get_shared_memory(QUEUE_SHM_KEY, "WaitingQueue");
@@ -87,10 +89,11 @@ int main(int argc, char *argv[]) {
 	int sportelllo_index = 0;
 
 	operator->assigned_sportello[operatore_index] = -1;
-	operator->service_type[operatore_index] = rand() % NUM_SERVICES;
+	int service_type = rand() % NUM_SERVICES;
+	operator->service_type[operatore_index] = service_type;
 
 
-
+	//LOG_ERR("Servince type at creation: %d", service_type);
 	unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
 	unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 
@@ -105,15 +108,13 @@ int main(int argc, char *argv[]) {
 			if (sportello->available[i] == 1 &&
 				(sportello->service_type[i] == operator->service_type[operatore_index])) {
 
-				printf("Sportello service type: %d\n", sportello->service_type[i]);
-				printf("Operatore service type: %d\n", operator->service_type[operatore_index]);
-
 
 
 				sportello->available[i] = 0;
 				sportello->assigned_operator[i] = getpid();
 				operator->breaks_taken[operatore_index] = 0;
 				operator->assigned_sportello[operatore_index] = i;
+				sportello->assigned_operator_count++;
 				unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
 				//used to track the index of the counter and the operator
@@ -127,12 +128,14 @@ int main(int argc, char *argv[]) {
 				lock_semaphore(STATISTIC_SEMAPHORE_KEY);
 				stats->active_operators_today++;
 				stats->active_operators_total++;
+
+				printf("Active operators taken %d.\n", stats->active_operators_today);
 				unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 				break;
 			}
 			unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 		}
-		lock_semaphore(OPERATORE_SEMAPHORE_KEY);
+		unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
 
 		//LOG_INFO("[Operatore %d] Waiting for an available sportello\n", getpid());
 		sleep(1); // wait for a counter that offers the same service to be available again
@@ -146,7 +149,6 @@ int main(int argc, char *argv[]) {
 	}
 	unlock_semaphore(OPERATORE_SEMAPHORE_KEY);*/
 
-	LOG_ERR("wooooooork");
 	LOG_INFO("[Operatore %d] Ready to serve customers\n", getpid());
 
 
@@ -156,9 +158,13 @@ int main(int argc, char *argv[]) {
 		sportello->operatori_ready = 1;
 	}
 	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);*/
+	//
+	//
+	///lock_semaphore(OPERATORE_SEMAPHORE_KEY);
 
+	//LOG_ERR("Service type for UTENTE:%d   is %d.\n",getpid(), service_type);
+	//unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
 	while (running) {
-
 
 		//int found_ticket = 0;
 
@@ -168,26 +174,35 @@ int main(int argc, char *argv[]) {
 
 			//unlock_semaphore(service_type);
 		}*/
+		//LOG_ERR("[Operatore %d] Waiting for services\n", getpid());
+		///
+		///
+		if (operatore_index==1) {
 
-		lock_semaphore(OPERATORE_SEMAPHORE_KEY);
-		int service_type = operator->service_type[operatore_index];
-		unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
+			//LOG_ERR("Queue Size: %d\n", queue->queue_size[operator->service_type[operatore_index]]);
+			//OG_ERR("Service type for UTENTE:%d   is %d.\n",getpid(), service_type);
+		}
 
+
+		//LOG_ERR("Queue Size: %d\n", queue->queue_size[service_type]);
 		//LOG_ERR("[UTENTE %d] Size: %d, Service: %d",getpid(),  queue->queue_size[service_type], service_type);
-		LOG_ERR("Service type is %d.\n", service_type);
 
-		lock_semaphore(service_type);
+
+		//lock_semaphore(service_type);
+
+
 		for (int j = 0; j < queue->queue_size[service_type]; j++) {
 
 
 			int ticket = queue->ticket_queue[service_type][j];
 
+			if (ticket == -1) continue; // skip already served
 
-			if (ticket == -1) continue; // Skip already served
 
 			lock_semaphore(QUEUE_SEMAPHORE_KEY);
 			queue->ticket_queue[service_type][j] = -1; //signing the ticket as served
 			unlock_semaphore(QUEUE_SEMAPHORE_KEY);
+
 			//unlock_semaphore(service_type);
 
 			int service_time = SERVICE_TIME[service_type] + (rand() % 5 - 2);
@@ -196,7 +211,13 @@ int main(int argc, char *argv[]) {
 					 getpid(), ticket, SERVICE_NAMES[service_type], service_time);
 
 
+			//printf("Service time %d", service_time);
 			sleep_sim_minutes(service_time);
+
+			lock_semaphore(QUEUE_SEMAPHORE_KEY);
+			queue->served[service_type][j] = 1;
+			unlock_semaphore(QUEUE_SEMAPHORE_KEY);
+
 			//update stats
 			lock_semaphore(STATISTIC_SEMAPHORE_KEY);
 			stats->served_clients_total++;
@@ -228,7 +249,7 @@ int main(int argc, char *argv[]) {
 			break; // Handle one ticket per loop
 		}
 
-		unlock_semaphore(service_type);
+		//unlock_semaphore(service_type);
 		sleep_sim_minutes(1);
 	}
 }

@@ -58,15 +58,20 @@ int main() {
 	operator->n_op_on_break = 0;
 
 	create_shared_memory(SHM_KEY,sizeof(TicketSystem), "Erogatore");
-	create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
+
+	int shmid_sportello = create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
+	SportelloStatus *sportello = (SportelloStatus *) attach_shared_memory(shmid_sportello, "Sportello");
+	//create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
+
 	create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "Queue");
 	int shmid_stats = create_shared_memory(STATISTIC_SHM_KEY,sizeof(Stats), "Statistics");
 	Stats *stats = (Stats *) attach_shared_memory(shmid_stats, "Statistics");
-	initialize_stats(stats);
+
 
 
 
 	initialize_all_semaphores();
+	initialize_stats(stats);
 	start_all_processes(direttore);
 
 	LOG_WARN(
@@ -95,7 +100,17 @@ int main() {
 
 		//printf("Current Day: %d", current_day);
 		if ((i + 1) % (12 * 60) == 0) {
-			LOG_WARN("========== SIMULATION DAY %d ENDED ==========\n", current_day);
+
+			/*FILE *logfile = fopen("daily_stats.txt", "a"); // or stdout if printing
+			if (logfile != NULL) {
+				print_daily_stats(stats, sim_time->current_day, logfile);
+				fclose(logfile);
+			} else {
+				perror("Failed to open stats log file");
+			}*/
+
+
+
 
 
 			/*kill_all_processes(direttore);
@@ -109,13 +124,17 @@ int main() {
 			//clean_message_queue(MSG_KEY);
 
 			lock_semaphore(STATISTIC_SEMAPHORE_KEY);
-			for (int j = 0; i < NOF_WORKER_SEATS; i++) {
+			for (int j = 0; j < NOF_WORKER_SEATS; j++) {
 
 				stats->operator_to_sportello_ratio_today[j] = (float)stats->active_operators_today / (float)NOF_WORKER_SEATS;
 			}
+			stats->services_not_offered_total = NUM_SERVICES - stats->services_offered_total;
+			print_daily_stats(stats, sim_time->current_day, stdout);
 			stats->active_operators_today = 0;
 			stats->breaks_today = 0;
 			unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
+
+			LOG_WARN("========== SIMULATION DAY %d ENDED ==========\n", current_day);
 
 			clean_shared_memory(QUEUE_SHM_KEY, "Queue");
 			clean_shared_memory(SHM_KEY, "Erogatore");
@@ -140,8 +159,9 @@ int main() {
 				create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "Queue");
 				LOG_WARN("========== SIMULATION DAY %d STARTED ==========\n", current_day);
 
+				assign_service_to_sportello(sportello); //reassign new service to sportelllo
 				//i have to make NOF_USERS + the users that weren't served the previous day
-				for (int i = 0; i < NOF_USERS; i++) {
+				for (int k = 0; k < NOF_USERS; k++) {
 					start_process("utente", "./bin/utente", i, direttore);
 				}
 			}
@@ -167,9 +187,24 @@ int main() {
 	return 0;
 }
 
+void assign_service_to_sportello(void* arg) {
+
+    SportelloStatus* sportello = (SportelloStatus*) arg;
+	for (int i = 0; i < NOF_WORKER_SEATS; i++) {
+
+		sportello->service_type[i] = rand() % NUM_SERVICES;
+	}
+}
+
 /*void update_statistics(Stats *stats) {
 
-	//update avgs for each service
+
+
+}
+
+void reset_statistics(Stats *stats) {
+
+	//stats->services_offered_total=0;
 }*/
 
 
@@ -189,7 +224,7 @@ void start_all_processes(Direttore* direttore) {
 	tickets->in_use = 0;
 	/******** initialize counters(sportello) *****************+*/
 
-	sportello->sportelli_ready = 0;
+	//sportello->sportelli_ready = 0;
 	sportello->assigned_operator_count = 0;
 
 	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
@@ -204,9 +239,9 @@ void start_all_processes(Direttore* direttore) {
 	}
 	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
-	lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+	//lock_semaphore(STATISTIC_SEMAPHORE_KEY);
 	//if (!service_already_running) stats->services_offered_total++;
-	unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
+	//unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 
 
 	/*while (1) {
@@ -334,3 +369,5 @@ pid_t start_process(const char *name, const char *path, int arg, Direttore* dire
 
 	return pid;
 }
+
+

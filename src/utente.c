@@ -83,9 +83,9 @@ int main(int argc, char *argv[]) {
 	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	for (int i = 0; i < NOF_WORKER_SEATS; i++) {
 
-		printf("Sportello service type inside of utente %d \n", sportello->service_type[i]);
 		if (sportello->service_type[i]==utente.requested_service) {
 			serving=1;
+			unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 			break;
 		} ;
 	}
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 		unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		exit(EXIT_FAILURE);
 	}
-	int client_index = direttore->client_count++;
+	//int client_index = direttore->client_count++;
 	unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 
 	if (queue->queue_size[utente.requested_service] >= MAX_CLIENT_FOR_SERVICE) {
@@ -198,8 +198,8 @@ int main(int argc, char *argv[]) {
 	lock_semaphore(QUEUE_SEMAPHORE_KEY);
 	queue->ticket_queue[utente.requested_service][pos] = msg.ticket_number;
 	queue->queue_size[utente.requested_service]++;
-	queue->served[client_index] = 0;
-	lock_semaphore(QUEUE_SEMAPHORE_KEY);
+	queue->served[utente.requested_service][pos] = 0;
+	unlock_semaphore(QUEUE_SEMAPHORE_KEY);
 
 	unlock_semaphore(utente.requested_service);
 
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
 	// get current time before loop
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-	while (queue->ticket_queue[utente.requested_service][pos] != -1) {//while the ticket is being served
+	while (!queue->served[utente.requested_service][pos]) {//while the client is being served
 
 
 
@@ -236,14 +236,21 @@ int main(int argc, char *argv[]) {
 	// get current time after loop
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
+	LOG_INFO("[Utente %d] HAS BEEN SERVED\n", getpid());
+
 	double elapsed = (end.tv_sec - start.tv_sec) +
 				 (end.tv_nsec - start.tv_nsec) / 1e9;
 
+	//printf("Elapsed time: %f\n", elapsed);
+
+	elapsed /= 60;//get it in minutes
+	//printf("Elapsed time: %f\n", elapsed);
 	lock_semaphore(STATISTIC_SEMAPHORE_KEY);
-	stats->total_waiting_time += (elapsed - msg.estimated_time);
+	stats->total_waiting_time += (elapsed);
+	stats->per_service[utente.requested_service].total_waiting_time += (elapsed);
 	unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 
-	LOG_INFO("[Utente %d] HAS BEEN SERVED\n", getpid());
+
 
 
 	shmdt(queue);

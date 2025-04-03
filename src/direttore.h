@@ -6,7 +6,6 @@
 #define DIRETTORE_H
 
 #include <stdlib.h>
-
 //to track the children processes
 #define MAX_CHILDREN 100
 #define DIRETTORE_SHM_KEY 5678  // message Queue Key
@@ -29,6 +28,8 @@ void kill_all_processes(Direttore* direttore);
 void initialize_all_semaphores(void);
 //helper function to clean up all semaphores
 void cleanup_all_semaphores(void);
+//function to assign a service to operators
+void assign_service_to_sportello(void*);
 
 
 #endif //DIRETTORE_H

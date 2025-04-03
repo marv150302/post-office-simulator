@@ -51,7 +51,7 @@
 #define SPORTELLO_SEMAPHORE_KEY 300
 #define QUEUE_SEMAPHORE_KEY 400
 #define SIM_TIME_SEMAPHORE_KEY 500
-#define STATISTIC_SEMAPHORE_KEY 600
+#define STATISTIC_SEMAPHORE_KEY 900
 #define TICKET_EROGATOR_SEMAPHORE_KEY 700
 
 #define SIM_TIME_FMT "[Day %02d - %02d:%02d] "
@@ -82,7 +82,7 @@ typedef struct {
 
     int ticket_queue[NUM_SERVICES][MAX_CLIENT_FOR_SERVICE]; // Queue for each service (max 10 users per service)
     int queue_size[NUM_SERVICES]; // Number of users waiting per service
-    int served[MAX_CLIENTS];
+    int served[NUM_SERVICES][MAX_CLIENT_FOR_SERVICE]; //used to track wether a client has been served
 } WaitingQueue;
 
 void sleep_sim_minutes(double sim_minutes);

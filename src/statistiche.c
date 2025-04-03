@@ -32,3 +32,45 @@ void initialize_stats(Stats *stats) {
 
     unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 }
+
+#include <stdio.h>
+#include "statistiche.h"
+
+void print_daily_stats(const Stats *stats, int current_day, FILE *output) {
+    fprintf(output, "\n========== 📊 STATISTICS - DAY %d ==========\n\n", current_day);
+
+    fprintf(output, "🧾 General Stats:\n");
+    fprintf(output, "  - Total Clients Served         : %d\n", stats->served_clients_total);
+    fprintf(output, "  - Total Services Offered        : %d\n", stats->services_offered_total);
+    fprintf(output, "  - Services Not Offered Today   : %d\n", stats->services_not_offered_total);
+
+    fprintf(output, "\n⏱️ Time Stats:\n");
+    fprintf(output, "  - Avg Client Waiting Time      : %.2f min\n",
+            stats->served_clients_total > 0 ? stats->total_waiting_time / stats->served_clients_total : 0.0);
+    fprintf(output, "  - Avg Service Duration         : %.2f min\n",
+            stats->served_clients_total > 0 ? stats->total_serving_time / stats->served_clients_total : 0.0);
+
+    fprintf(output, "\n👥 Operator Stats:\n");
+    fprintf(output, "  - Active Operators Today       : %d\n", stats->active_operators_today);
+    fprintf(output, "  - Total Active Operators       : %d\n", stats->active_operators_total);
+    fprintf(output, "  - Breaks Taken Today           : %d\n", stats->breaks_today);
+    fprintf(output, "  - Total Breaks in Simulation   : %d\n", stats->breaks_total);
+
+    fprintf(output, "\n🏢 Operator-to-Sportello Ratio:\n");
+    for (int i = 0; i < MAX_SPORTELLI; ++i) {
+        fprintf(output, "  - Sportello %d                 : %.2f\n", i, stats->operator_to_sportello_ratio_today[i]);
+    }
+
+    fprintf(output, "\n📌 Per-Service Statistics:\n");
+    for (int i = 0; i < NUM_SERVICES; ++i) {
+        const StatisticByService *svc = &stats->per_service[i];
+        fprintf(output, "  [%s]\n", SERVICE_NAMES[i]);
+        fprintf(output, "    - Clients Served             : %d\n", svc->served_clients_total);
+        fprintf(output, "    - Avg Wait Time              : %.2f min\n",
+                svc->served_clients_total > 0 ? svc->total_waiting_time / svc->served_clients_total : 0.0);
+        fprintf(output, "    - Avg Service Time           : %.2f min\n",
+                svc->served_clients_total > 0 ? svc->total_serving_time / svc->served_clients_total : 0.0);
+    }
+
+    fprintf(output, "\n===========================================\n\n");
+}

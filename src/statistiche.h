@@ -8,11 +8,11 @@
 typedef struct {
 
 	/**/int served_clients_total; // total clients served per service, operator
-	//float avg_clients_served_per_day; // average clients served per day (for this service)
-	/**/int total_waiting_time; // sum of all wait times for this service for clients
-	/**/int total_serving_time; // sum of all service durations for this service
-	//float avg_waiting_time_per_day;
-	//float avg_serving_time_per_day;
+	float avg_clients_served_per_day; // average clients served per day (for this service)
+	/**/float  total_waiting_time; // sum of all wait times for this service for clients
+	/**/double total_serving_time; // sum of all service durations for this service
+	float avg_waiting_time_per_day;
+	float avg_serving_time_per_day;
 } StatisticByService;
 
 typedef struct {
@@ -36,4 +36,5 @@ typedef struct {
 
 
 void initialize_stats(Stats*);
+void print_daily_stats(const Stats *stats, int current_day, FILE *output);
 #endif //STATISTICHE_H

@@ -43,20 +43,40 @@ int main(int argc, char **argv) {
 	//int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
 	//TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
-	//int shmid_stats = get_shared_memory(STATISTIC_SHM_KEY, "Statistics");
-	//Stats *stats = (Stats *) attach_shared_memory(shmid_stats, "Statistics");
+	int shmid_stats = get_shared_memory(STATISTIC_SHM_KEY, "Statistics");
+	Stats *stats = (Stats *) attach_shared_memory(shmid_stats, "Statistics");
 
 	// get the counter(sportello) number from argument passed on command
 	int sportello_index = atoi(argv[1]);
 
 
 
-	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	int service = rand() % NUM_SERVICES;
-	sportello->service_type[sportello_index] = service; // assign random service
-	sportello->available[sportello_index] = 1; // mark as available
-	sportello->assigned_operator[sportello_index] = -1; // no operator assigned yet
+
+	// Step 1: Check if the service is already assigned in another sportello
+	int service_already_running = 0;
+	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+	for (int i = 0; i < NOF_WORKER_SEATS; i++) {
+		if (i != sportello_index && sportello->service_type[i] == service) {
+			service_already_running = 1;
+			break;
+		}
+	}
+
+	// Step 2: Assign the service to the sportello
+	sportello->service_type[sportello_index] = service;
+	sportello->available[sportello_index] = 1;
+	sportello->assigned_operator[sportello_index] = -1;
 	sportello->ready[sportello_index] = 1;
+	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+
+	// Step 3: Update statistics if this is a new service for the day
+	if (!service_already_running) {
+		lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+		stats->services_offered_total++;
+		unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
+	}
+
 	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
 
@@ -75,14 +95,14 @@ int main(int argc, char **argv) {
 	LOG_INFO("[Sportello %d] Handling service %d.\n", getpid(), service);
 
 
-	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+	/*lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
 	sportello->sportelli_ready+=1;
 	int ready = sportello->sportelli_ready;  // Copy value for logging
 
 	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
-	LOG_WARN("[Sportello %d] Sportello ready. Total ready: %d", getpid(), ready);
+	LOG_WARN("[Sportello %d] Sportello ready. Total ready: %d", getpid(), ready);*/
 
 	while (running) {
 		// check if users are waiting for this service
