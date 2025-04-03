@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "sportello.h"
 #include "memory_handler.h"
+#include "statistiche.h"
 #include <errno.h>
 #include "direttore.h"
 #include <time.h>
@@ -25,8 +26,9 @@ int main() {
 
 	attach_sim_time(); // for handling simulation time
 
+	//initializing day and time
 	sim_time->current_day = 1;
-	sim_time->current_hour = 8;
+	sim_time->current_hour = OPENING_HOUR;
 	sim_time->current_minute = 0;
 	srand(time(NULL) ^ getpid());
 
@@ -43,7 +45,7 @@ int main() {
 	int shmid_direttore = create_shared_memory(DIRETTORE_SHM_KEY, sizeof(Direttore), "Direttore");
 	Direttore *direttore = (Direttore *) attach_shared_memory(shmid_direttore, "Direttore");
 	/*
-	 * initialize
+	 * initialize direttore
 	 */
 	direttore->child_proc_count = 0;
 	direttore->client_count = 0;
@@ -58,6 +60,9 @@ int main() {
 	create_shared_memory(SHM_KEY,sizeof(TicketSystem), "Erogatore");
 	create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
 	create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "Queue");
+	int shmid_stats = create_shared_memory(STATISTIC_SHM_KEY,sizeof(Stats), "Statistics");
+	Stats *stats = (Stats *) attach_shared_memory(shmid_stats, "Statistics");
+	initialize_stats(stats);
 
 
 
@@ -80,7 +85,7 @@ int main() {
 		};
 		nanosleep(&ts, NULL);
 
-		int minute_of_day = i % (12 * 60);  // Wrap every 12 hours
+		int minute_of_day = i % (12 * 60);  // wrrap every 12 hours
 		lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
 		sim_time->current_day = current_day;
 		sim_time->current_hour = (minute_of_day / 60) + OPENING_HOUR;
@@ -102,6 +107,15 @@ int main() {
 			clean_shared_memory(QUEUE_SHM_KEY, "Queue");*/
 
 			//clean_message_queue(MSG_KEY);
+
+			lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+			for (int j = 0; i < NOF_WORKER_SEATS; i++) {
+
+				stats->operator_to_sportello_ratio_today[j] = (float)stats->active_operators_today / (float)NOF_WORKER_SEATS;
+			}
+			stats->active_operators_today = 0;
+			stats->breaks_today = 0;
+			unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 
 			clean_shared_memory(QUEUE_SHM_KEY, "Queue");
 			clean_shared_memory(SHM_KEY, "Erogatore");
@@ -126,7 +140,7 @@ int main() {
 				create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "Queue");
 				LOG_WARN("========== SIMULATION DAY %d STARTED ==========\n", current_day);
 
-				//i have to make NOF_USERS - the users that weren't served the previous day
+				//i have to make NOF_USERS + the users that weren't served the previous day
 				for (int i = 0; i < NOF_USERS; i++) {
 					start_process("utente", "./bin/utente", i, direttore);
 				}
@@ -134,6 +148,7 @@ int main() {
 		}
 	}
 
+	//update_statistics(stats);
 
 	sleep(3); // give the processes time to clean up
 
@@ -145,11 +160,17 @@ int main() {
 	while (wait(NULL) > 0);
 	LOG_WARN("All processes terminated. Simulation finished.\n");
 
+	clean_shared_memory(STATISTIC_SHM_KEY, "STATISTIC");
 	cleanup_all_semaphores();
 
 
 	return 0;
 }
+
+/*void update_statistics(Stats *stats) {
+
+	//update avgs for each service
+}*/
 
 
 void start_all_processes(Direttore* direttore) {
@@ -169,13 +190,24 @@ void start_all_processes(Direttore* direttore) {
 	/******** initialize counters(sportello) *****************+*/
 
 	sportello->sportelli_ready = 0;
+	sportello->assigned_operator_count = 0;
+
+	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+	//int service_already_running = 0;
 	for (int i = 0; i < NOF_WORKER_SEATS; i++) {
 
-        sportello->ready[i] = 0;
+
+		sportello->ready[i] = 0;
 		//assigning the operator to the counter
 		start_process("sportello", "./bin/sportello", i, direttore);
+		//if (sportello->service_type[i]==service) service_already_running = 1;
 	}
-	sportello->assigned_operator_count = 0;
+	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+
+	lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+	//if (!service_already_running) stats->services_offered_total++;
+	unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
+
 
 	/*while (1) {
 		lock_semaphore(SPORTELLO_SHM_KEY);
@@ -254,6 +286,8 @@ void cleanup_all_semaphores(void) {
 	cleanup_semaphores(SPORTELLO_SEMAPHORE_KEY);
 	cleanup_semaphores(DIRETTORE_SEMAPHORE_KEY);
 	cleanup_semaphores(SIM_TIME_SEMAPHORE_KEY);
+	cleanup_semaphores(STATISTIC_SEMAPHORE_KEY);
+	cleanup_semaphores(TICKET_EROGATOR_SEMAPHORE_KEY);
 }
 
 void initialize_all_semaphores(void) {
@@ -268,6 +302,10 @@ void initialize_all_semaphores(void) {
 	initialize_semaphores(QUEUE_SEMAPHORE_KEY);
 	initialize_semaphores(SPORTELLO_SEMAPHORE_KEY);
 	initialize_semaphores(DIRETTORE_SEMAPHORE_KEY);
+	initialize_semaphores(STATISTIC_SEMAPHORE_KEY);
+	initialize_semaphores(TICKET_EROGATOR_SEMAPHORE_KEY);
+
+
 }
 
 

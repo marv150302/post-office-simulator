@@ -6,6 +6,7 @@
 #include "direttore.h"
 #include <string.h>
 #include <stdlib.h>
+#include "statistiche.h"
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <unistd.h>
@@ -64,6 +65,10 @@ int main(int argc, char *argv[]) {
 	int shmid_operator = get_shared_memory(OPERATORS_SHM_KEY, "Operatore");
 	Operatore *operator = (Operatore *) attach_shared_memory(shmid_operator, "Operatore");
 
+	// Create and attach operator shared memory
+	int shmid_stats = get_shared_memory(STATISTIC_SHM_KEY, "Statistics");
+	Stats *stats = (Stats *) attach_shared_memory(shmid_stats, "Statistics");
+
 	//int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
 	//TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
@@ -84,18 +89,25 @@ int main(int argc, char *argv[]) {
 	operator->assigned_sportello[operatore_index] = -1;
 	operator->service_type[operatore_index] = rand() % NUM_SERVICES;
 
+
+
 	unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
 	unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 
 	// Find a free counter that handles your service
 	while (operator->assigned_sportello[operatore_index] == -1) {
+
+		lock_semaphore(OPERATORE_SEMAPHORE_KEY);
 		for (int i = 0; i < NOF_WORKER_SEATS; i++) {
 			lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 			//if the counter is available and the sportello is ofeering the same service type
 			//as the operator
 			if (sportello->available[i] == 1 &&
 				(sportello->service_type[i] == operator->service_type[operatore_index])) {
-				lock_semaphore(OPERATORE_SEMAPHORE_KEY);
+
+				printf("Sportello service type: %d\n", sportello->service_type[i]);
+				printf("Operatore service type: %d\n", operator->service_type[operatore_index]);
+
 
 
 				sportello->available[i] = 0;
@@ -110,10 +122,17 @@ int main(int argc, char *argv[]) {
 				LOG_INFO("[Operatore %d] Assigned to sportello %d.\n", getpid(),
 				         operator->assigned_sportello[operatore_index]);
 				unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
+
+
+				lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+				stats->active_operators_today++;
+				stats->active_operators_total++;
+				unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 				break;
 			}
 			unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 		}
+		lock_semaphore(OPERATORE_SEMAPHORE_KEY);
 
 		//LOG_INFO("[Operatore %d] Waiting for an available sportello\n", getpid());
 		sleep(1); // wait for a counter that offers the same service to be available again
@@ -127,7 +146,7 @@ int main(int argc, char *argv[]) {
 	}
 	unlock_semaphore(OPERATORE_SEMAPHORE_KEY);*/
 
-
+	LOG_ERR("wooooooork");
 	LOG_INFO("[Operatore %d] Ready to serve customers\n", getpid());
 
 
@@ -139,6 +158,8 @@ int main(int argc, char *argv[]) {
 	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);*/
 
 	while (running) {
+
+
 		//int found_ticket = 0;
 
 		/*for (int service_type = 0; service_type < NUM_SERVICES; ++service_type) {
@@ -152,22 +173,38 @@ int main(int argc, char *argv[]) {
 		int service_type = operator->service_type[operatore_index];
 		unlock_semaphore(OPERATORE_SEMAPHORE_KEY);
 
+		//LOG_ERR("[UTENTE %d] Size: %d, Service: %d",getpid(),  queue->queue_size[service_type], service_type);
+		LOG_ERR("Service type is %d.\n", service_type);
+
 		lock_semaphore(service_type);
 		for (int j = 0; j < queue->queue_size[service_type]; j++) {
+
+
 			int ticket = queue->ticket_queue[service_type][j];
 
-			unlock_semaphore(service_type);
+
 			if (ticket == -1) continue; // Skip already served
 
 			lock_semaphore(QUEUE_SEMAPHORE_KEY);
 			queue->ticket_queue[service_type][j] = -1; //signing the ticket as served
 			unlock_semaphore(QUEUE_SEMAPHORE_KEY);
+			//unlock_semaphore(service_type);
+
 			int service_time = SERVICE_TIME[service_type] + (rand() % 5 - 2);
+
 			LOG_INFO("[Operatore %d] Serving ticket %d for Service: [%s] (Expected time: %d min)\n",
 					 getpid(), ticket, SERVICE_NAMES[service_type], service_time);
 
 
 			sleep_sim_minutes(service_time);
+			//update stats
+			lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+			stats->served_clients_total++;
+			stats->total_serving_time+=service_time;;
+			stats->per_service[service_type].served_clients_total++;
+			stats->per_service[service_type].total_serving_time+=service_time;
+
+			unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 
 
 			LOG_INFO("[Operatore %d] Finished serving ticket %d for Service: [%s] at sportello %d.\n",
@@ -179,6 +216,11 @@ int main(int argc, char *argv[]) {
 				operator->n_op_on_break < NOF_WORKERS - 3) {
 				//to prevent all workers to go on break at the same period
 
+				lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+				stats->breaks_today++;
+				stats->breaks_total++;
+				unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
+
 				operator->n_op_on_break++;
 				free_counter(sportello, operator, sportelllo_index, operatore_index);
 				take_break(operator, operatore_index);
@@ -186,6 +228,7 @@ int main(int argc, char *argv[]) {
 			break; // Handle one ticket per loop
 		}
 
+		unlock_semaphore(service_type);
 		sleep_sim_minutes(1);
 	}
 }

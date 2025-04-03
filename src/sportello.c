@@ -3,6 +3,7 @@
 #include "memory_handler.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "statistiche.h"
 #include <sys/ipc.h>
 #include "erogatore_ticket.h"
 #include <sys/shm.h>
@@ -42,6 +43,9 @@ int main(int argc, char **argv) {
 	//int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
 	//TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
+	//int shmid_stats = get_shared_memory(STATISTIC_SHM_KEY, "Statistics");
+	//Stats *stats = (Stats *) attach_shared_memory(shmid_stats, "Statistics");
+
 	// get the counter(sportello) number from argument passed on command
 	int sportello_index = atoi(argv[1]);
 
@@ -54,6 +58,12 @@ int main(int argc, char **argv) {
 	sportello->assigned_operator[sportello_index] = -1; // no operator assigned yet
 	sportello->ready[sportello_index] = 1;
 	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+
+
+	//printf("Service %d ran by sportelll is ready\n", service);
+
+	//printf("Service %d: \n,", sportello->service_type[sportello_index]);
+
 
 
 	if (sportello_index == -1) {

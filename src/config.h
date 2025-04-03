@@ -8,6 +8,7 @@
 #include <sys/shm.h>
 #include <sys/msg.h>
 #include <unistd.h>
+
 #include <time.h>
 #include "shared_time.h"
 #include "../libs/cJSON/cJSON.h"
@@ -50,6 +51,8 @@
 #define SPORTELLO_SEMAPHORE_KEY 300
 #define QUEUE_SEMAPHORE_KEY 400
 #define SIM_TIME_SEMAPHORE_KEY 500
+#define STATISTIC_SEMAPHORE_KEY 600
+#define TICKET_EROGATOR_SEMAPHORE_KEY 700
 
 #define SIM_TIME_FMT "[Day %02d - %02d:%02d] "
 #define SIM_TIME_ARGS(i) ((i) / (24 * 60) + 1), (((i) / 60) % 24), ((i) % 60)
