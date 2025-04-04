@@ -36,5 +36,5 @@ typedef struct {
 
 
 void initialize_stats(Stats*);
-void print_daily_stats(const Stats *stats, int current_day, FILE *output);
+void print_daily_stats(Stats *stats, int current_day, FILE *output);
 #endif //STATISTICHE_H

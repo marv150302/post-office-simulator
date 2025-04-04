@@ -19,8 +19,6 @@
 #include "sportello.h"
 
 int main(int argc, char *argv[]) {
-
-
 	attach_sim_time();
 	srand(time(NULL) ^ getpid());
 
@@ -29,11 +27,10 @@ int main(int argc, char *argv[]) {
 	//choose a random value between p_SERVE_MAX and P_SERV_MIN
 	double p_serv = P_SERV_MIN + ((double) rand() / RAND_MAX) * (P_SERV_MAX - P_SERV_MIN);
 
-	const double roll = (double)rand() / RAND_MAX;
+	const double roll = (double) rand() / RAND_MAX;
 
 	//if the client choose to stay home instead of going to the office
 	if (roll >= p_serv) {
-
 		//LOG_WARN("Client [%d] CHOOSE TO STAY AT HOME", getpid());
 		//return 0;
 	}
@@ -49,8 +46,6 @@ int main(int argc, char *argv[]) {
 		// Save PID
 		lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		if (direttore->child_proc_count < MAX_CHILDREN) {
-
-
 			direttore->child_pids[direttore->child_proc_count++] = getpid();
 			//unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		}
@@ -79,19 +74,17 @@ int main(int argc, char *argv[]) {
 	Utente utente;
 	utente.requested_service = rand() % NUM_SERVICES; // randomly select a service
 	int serving = 0;
-    //chek if the service is handled
+	//chek if the service is handled
 	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	for (int i = 0; i < NOF_WORKER_SEATS; i++) {
-
-		if (sportello->service_type[i]==utente.requested_service) {
-			serving=1;
+		if (sportello->service_type[i] == utente.requested_service) {
+			serving = 1;
 			unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 			break;
-		} ;
+		};
 	}
 	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	if (!serving) {
-
 		LOG_WARN("The Service %s is not handled today, try tomorrow!", SERVICE_NAMES[utente.requested_service]);
 		return 0;
 	}
@@ -110,7 +103,8 @@ int main(int argc, char *argv[]) {
 	unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
 
 	char minute_buf[3]; // 2 digits + null terminator
-	snprintf(minute_buf, sizeof(minute_buf), "%02d", utente.arrival_minute); //ensures a 0 in front of numbers less than 10
+	snprintf(minute_buf, sizeof(minute_buf), "%02d", utente.arrival_minute);
+	//ensures a 0 in front of numbers less than 10
 	LOG_WARN("UTENTE[%d] Booked an appointment for %d:%s", getpid(), utente.arrival_hour, minute_buf);
 
 	//wait for your appointment
@@ -121,11 +115,11 @@ int main(int argc, char *argv[]) {
 		unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
 
 		if (hour < utente.arrival_hour ||
-			(hour == utente.arrival_hour && minute < utente.arrival_minute)) {
+		    (hour == utente.arrival_hour && minute < utente.arrival_minute)) {
 			sleep(1); // simulate wait until arrival time
-			} else {
-				break; // time to enter!
-			}
+		} else {
+			break; // time to enter!
+		}
 	} while (1);
 
 
@@ -165,8 +159,7 @@ int main(int argc, char *argv[]) {
 
 
 	// int in_use = tickets->in_use;
-	while (ticket_machine->in_use==1) {
-
+	while (ticket_machine->in_use == 1) {
 		sleep(1);
 	}
 
@@ -207,15 +200,16 @@ int main(int argc, char *argv[]) {
 
 
 	lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
-	int next_day = sim_time->current_day+1;
+	int next_day = sim_time->current_day + 1;
 	unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
 
+	int not_served = 0;
 	struct timespec start, end;
 	// get current time before loop
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-	while (!queue->served[utente.requested_service][pos]) {//while the client is being served
-
+	while (!queue->served[utente.requested_service][pos]) {
+		//while the client is being served
 
 
 		lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
@@ -224,11 +218,10 @@ int main(int argc, char *argv[]) {
 		unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
 		//if the day has ended we need to exit
 		if (current_day == next_day) {
-
-			shmdt(queue);
-			shmdt(direttore);
-			shmdt(ticket_machine);
-			LOG_INFO("[UTENTE %d]has exited the office.\n", getpid());
+			//shmdt(queue);
+			//shmdt(direttore);
+			//shmdt(ticket_machine);
+			not_served = 1;
 			break;
 		}
 	} //let the client wait till he's served
@@ -236,21 +229,31 @@ int main(int argc, char *argv[]) {
 	// get current time after loop
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
-	LOG_INFO("[Utente %d] HAS BEEN SERVED\n", getpid());
 
 	double elapsed = (end.tv_sec - start.tv_sec) +
-				 (end.tv_nsec - start.tv_nsec) / 1e9;
+	                 (end.tv_nsec - start.tv_nsec) / 1e9;
 
 	//printf("Elapsed time: %f\n", elapsed);
-
-	elapsed /= 60;//get it in minutes
+	elapsed /= 60; //get it in minutes
 	//printf("Elapsed time: %f\n", elapsed);
 	lock_semaphore(STATISTIC_SEMAPHORE_KEY);
 	stats->total_waiting_time += (elapsed);
 	stats->per_service[utente.requested_service].total_waiting_time += (elapsed);
 	unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 
+	if (not_served) {
+		LOG_INFO("[UTENTE %d] Has exited the office for lack of service.\n", getpid());
+		lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+		stats->services_not_offered_total++;
+		unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
+		//detach memory
+		detach_shared_memory(queue);
+		detach_shared_memory(direttore);
+		detach_shared_memory(ticket_machine);
+		return 0;
+	}
 
+	LOG_INFO("[Utente %d] HAS BEEN SERVED\n", getpid());
 
 
 	shmdt(queue);

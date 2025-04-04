@@ -124,14 +124,14 @@ int main() {
 			//clean_message_queue(MSG_KEY);
 
 			lock_semaphore(STATISTIC_SEMAPHORE_KEY);
-			for (int j = 0; j < NOF_WORKER_SEATS; j++) {
+			/*for (int j = 0; j < NOF_WORKER_SEATS; j++) {
 
 				stats->operator_to_sportello_ratio_today[j] = (float)stats->active_operators_today / (float)NOF_WORKER_SEATS;
-			}
-			stats->services_not_offered_total = NUM_SERVICES - stats->services_offered_total;
+			}*/
+			//stats->services_not_offered_total = NUM_SERVICES - stats->services_offered_total;
 			print_daily_stats(stats, sim_time->current_day, stdout);
-			stats->active_operators_today = 0;
-			stats->breaks_today = 0;
+			/*stats->active_operators_today = 0;
+			stats->breaks_today = 0;*/
 			unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 
 			LOG_WARN("========== SIMULATION DAY %d ENDED ==========\n", current_day);

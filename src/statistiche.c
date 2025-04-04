@@ -7,6 +7,7 @@
 void initialize_stats(Stats *stats) {
     lock_semaphore(STATISTIC_SEMAPHORE_KEY);
 
+
     stats->served_clients_total = 0;
     stats->services_offered_total = 0;
     stats->services_not_offered_total = 0;
@@ -36,7 +37,15 @@ void initialize_stats(Stats *stats) {
 #include <stdio.h>
 #include "statistiche.h"
 
-void print_daily_stats(const Stats *stats, int current_day, FILE *output) {
+void print_daily_stats(Stats *stats, int current_day, FILE *output) {
+
+
+     for (int j = 0; j < NOF_WORKER_SEATS; j++) {
+
+		stats->operator_to_sportello_ratio_today[j] = (float)stats->active_operators_today / (float)NOF_WORKER_SEATS;
+     }
+
+    //stats->services_not_offered_total = NUM_SERVICES - stats->services_offered_total;
     fprintf(output, "\n========== 📊 STATISTICS - DAY %d ==========\n\n", current_day);
 
     fprintf(output, "🧾 General Stats:\n");
@@ -73,4 +82,7 @@ void print_daily_stats(const Stats *stats, int current_day, FILE *output) {
     }
 
     fprintf(output, "\n===========================================\n\n");
+
+    stats->active_operators_today = 0;
+	stats->breaks_today = 0;
 }
