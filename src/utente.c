@@ -18,32 +18,38 @@
 
 #include "sportello.h"
 
+
+volatile sig_atomic_t running = 1;
+
+void handle_sigterm(int sig) {
+	LOG_WARN("[Utente %d] Received signal %d, shutting down\n", getpid(), sig);
+	running = 0;
+}
+
 int main(int argc, char *argv[]) {
+	signal(SIGTERM, handle_sigterm);
+	signal(SIGILL, handle_sigterm);
+
 	attach_sim_time();
 	srand(time(NULL) ^ getpid());
 
 	load_config("config/config.json");
 
-	//choose a random value between p_SERVE_MAX and P_SERV_MIN
-	double p_serv = P_SERV_MIN + ((double) rand() / RAND_MAX) * (P_SERV_MAX - P_SERV_MIN);
-
-	const double roll = (double) rand() / RAND_MAX;
-
-	//if the client choose to stay home instead of going to the office
-	if (roll >= p_serv) {
-		//LOG_WARN("Client [%d] CHOOSE TO STAY AT HOME", getpid());
-		//return 0;
-	}
+	if (should_stay_home()) return 0;
 
 	int shmid_direttore = get_shared_memory(DIRETTORE_SHM_KEY, "Direttore");
 	Direttore *direttore = (Direttore *) attach_shared_memory(shmid_direttore, "Direttore");
 
 
-	if (argc > 2 && strcmp(argv[2], "--from-direttore") == 0) {
+	if (argc == 3 && strcmp(argv[2], "--from-direttore") == 0) {
+
+
 		LOG_WARN("Client Launched by direttore");
 	} else {
 		LOG_WARN("Client Launched manually from terminal");
-		// Save PID
+
+		// save PID
+
 		lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		if (direttore->child_proc_count < MAX_CHILDREN) {
 			direttore->child_pids[direttore->child_proc_count++] = getpid();
@@ -64,63 +70,43 @@ int main(int argc, char *argv[]) {
 	int shmid_stats = get_shared_memory(STATISTIC_SHM_KEY, "Statistics");
 	Stats *stats = (Stats *) attach_shared_memory(shmid_stats, "Statistics");
 
-
+	Utente utente;
 	int min_hour = sim_time->current_hour;
 	int max_hour = CLOSING_HOUR - 1; // last valid full hour
 
+
 	// Random hour from current to closing
+	generate_appointment(&utente, min_hour, max_hour);
+	wait_until_appointment(&utente);
 
+	utente.N_REQUEST = 1 + rand() % N_REQUESTS;
+	utente.requests = malloc(sizeof(int) * utente.N_REQUEST);
 
-	Utente utente;
+	for (int i = 0; i < utente.N_REQUEST; i++) {
+		utente.requests[i] = rand() % NUM_SERVICES; //getting the user requests
+	}
 	utente.requested_service = rand() % NUM_SERVICES; // randomly select a service
-	int serving = 0;
-	//chek if the service is handled
-	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
-	for (int i = 0; i < NOF_WORKER_SEATS; i++) {
-		if (sportello->service_type[i] == utente.requested_service) {
-			serving = 1;
-			unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
-			break;
-		};
-	}
-	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
-	if (!serving) {
-		LOG_WARN("The Service %s is not handled today, try tomorrow!", SERVICE_NAMES[utente.requested_service]);
-		return 0;
-	}
 
-
-	lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
-
-	utente.arrival_hour = min_hour + rand() % (max_hour - min_hour + 1);
-	// If user will arrive in the same hour, we make sure the minute is in the future
-	if (utente.arrival_hour == sim_time->current_hour) {
-		utente.arrival_minute = sim_time->current_minute + rand() % (60 - sim_time->current_minute);
-	} else {
-		utente.arrival_minute = rand() % 60;
-	}
-
-	unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
-
-	char minute_buf[3]; // 2 digits + null terminator
-	snprintf(minute_buf, sizeof(minute_buf), "%02d", utente.arrival_minute);
-	//ensures a 0 in front of numbers less than 10
-	LOG_WARN("UTENTE[%d] Booked an appointment for %d:%s", getpid(), utente.arrival_hour, minute_buf);
-
-	//wait for your appointment
-	do {
-		lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
-		int hour = sim_time->current_hour;
-		int minute = sim_time->current_minute;
-		unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
-
-		if (hour < utente.arrival_hour ||
-		    (hour == utente.arrival_hour && minute < utente.arrival_minute)) {
-			sleep(1); // simulate wait until arrival time
-		} else {
-			break; // time to enter!
+	LOG_WARN("[UTENTE %d]  WILL REQUEST : [%d] SERVICES", getpid(), utente.N_REQUEST);
+	//chek if the services you requested are handled
+	for (int j = 0; j < utente.N_REQUEST; j++) {
+		int requested_service = utente.requests[j];
+		int service_offered = 0;
+		lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+		for (int i = 0; i < NOF_WORKER_SEATS; i++) {
+			if (sportello->service_type[i] == requested_service) {
+				service_offered = 1;
+			};
 		}
-	} while (1);
+		unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
+
+		if (!service_offered) {
+			lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+			stats->services_not_offered_total++;
+			unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
+			LOG_WARN("The Service %s is not handled today, try tomorrow!", SERVICE_NAMES[requested_service]);
+		}
+	}
 
 
 	lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
@@ -129,135 +115,201 @@ int main(int argc, char *argv[]) {
 		unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 		exit(EXIT_FAILURE);
 	}
-	//int client_index = direttore->client_count++;
+
 	unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
 
-	if (queue->queue_size[utente.requested_service] >= MAX_CLIENT_FOR_SERVICE) {
-		LOG_WARN("[Utente %d] Queue for service %d is full. Exiting...\n", getpid(), utente.requested_service);
-		shmdt(queue);
-		return EXIT_FAILURE;
+	lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+	int next_day = sim_time->current_day + 1;
+	unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+
+	handle_service_requests(utente, queue, ticket_machine, stats, next_day,direttore);
+
+	return 0;
+}
+
+
+void handle_service_requests(Utente utente, WaitingQueue *queue, TicketSystem *ticket_machine,
+							 Stats *stats, int next_day, Direttore* direttore) {
+
+	for (int i = 0; i < utente.N_REQUEST && running; i++) {
+		int requested_service = utente.requests[i];
+
+		lock_semaphore(requested_service);
+		lock_semaphore(QUEUE_SEMAPHORE_KEY);
+
+		int pos = queue->queue_size[requested_service];
+		if (pos >= MAX_CLIENT_FOR_SERVICE) {
+			LOG_ERR("[Utente %d] Queue overflow for service %d", getpid(), requested_service);
+			unlock_semaphore(QUEUE_SEMAPHORE_KEY);
+			unlock_semaphore(requested_service);
+			continue;
+		}
+
+		TicketMessage msg = get_ticket(requested_service, ticket_machine);
+
+		queue->ticket_queue[requested_service][pos] = msg.ticket_number;
+		queue->queue_size[requested_service]++;
+		queue->served[requested_service][pos] = 0;
+
+		unlock_semaphore(QUEUE_SEMAPHORE_KEY);
+		unlock_semaphore(requested_service);
+
+		LOG_INFO("[Utente %d] Waiting in line for Service: [%s]\n", getpid(), SERVICE_NAMES[requested_service]);
+
+		struct timespec start, end;
+		clock_gettime(CLOCK_MONOTONIC, &start);
+
+		while (running && !queue->served[requested_service][pos]) {
+			lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+			int current_day = sim_time->current_day;
+			unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+
+			if (current_day >= next_day) {
+				LOG_INFO("[UTENTE %d] Exited because the office closed\n", getpid());
+				lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+				stats->services_not_offered_total++;
+				unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
+				running = 0;
+				cleanup(utente, queue, direttore, ticket_machine);
+				return;
+			}
+			usleep(100000);
+		}
+
+		LOG_INFO("[Utente %d] HAS BEEN SERVED\n", getpid());
+
+		clock_gettime(CLOCK_MONOTONIC, &end);
+
+		double elapsed = (end.tv_sec - start.tv_sec) +
+						 (end.tv_nsec - start.tv_nsec) / 1e9;
+		elapsed /= 60;
+
+		lock_semaphore(STATISTIC_SEMAPHORE_KEY);
+		stats->total_waiting_time += elapsed;
+		stats->per_service[requested_service].total_waiting_time += elapsed;
+		unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
+
+		lock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
+		ticket_machine->nof_clients_waiting--;
+		unlock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
 	}
 
-	// request ticket
-	int msgid = msgget(MSG_KEY, 0666);
-	if (msgid == -1) {
-		LOG_ERR("Message get failed for [CLIENT]");
-		exit(EXIT_FAILURE);
+	cleanup(utente, queue, direttore, ticket_machine);
+}
+
+bool should_stay_home() {
+	attach_sim_time();
+	load_config("config/config.json");
+
+	double p_serv = P_SERV_MIN + ((double) rand() / RAND_MAX) * (P_SERV_MAX - P_SERV_MIN);
+	const double roll = (double) rand() / RAND_MAX;
+
+	lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+	if (roll >= p_serv || (sim_time->current_hour == CLOSING_HOUR - 1 && sim_time->current_minute >= 40)) {
+		LOG_WARN(" [UTENTE %d] Is staying home", getpid());
+		unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+		return true;
+	}
+	unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+	return false;
+}
+
+void generate_appointment(Utente *utente, int min_hour, int max_hour) {
+	lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+
+	utente->arrival_hour = min_hour + rand() % (max_hour - min_hour + 1);
+	// If user will arrive in the same hour, we make sure the minute is in the future
+	if (utente->arrival_hour == sim_time->current_hour) {
+		utente->arrival_minute = sim_time->current_minute + rand() % (60 - sim_time->current_minute);
+	} else {
+		utente->arrival_minute = rand() % 60;
 	}
 
-	LOG_INFO("[Utente %d] Requesting ticket for Service: [%s]\n", getpid(), SERVICE_NAMES[utente.requested_service]);
+	unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+
+	char minute_buf[3]; // made of 2 digits + null terminator
+	snprintf(minute_buf, sizeof(minute_buf), "%02d", utente->arrival_minute);
+	LOG_WARN("UTENTE[%d] Booked an appointment for %d:%s", getpid(), utente->arrival_hour, minute_buf);
+}
+
+void wait_until_appointment(Utente *utente) {
+	//wait for your appointment
+	do {
+		lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+		int hour = sim_time->current_hour;
+		int minute = sim_time->current_minute;
+		unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+
+		if (hour < utente->arrival_hour ||
+		    (hour == utente->arrival_hour && minute < utente->arrival_minute)) {
+			sleep(1);
+		} else {
+			break;
+		}
+	} while (1);
+}
+
+TicketMessage get_ticket(int service, TicketSystem *ticket_machine) {
+	TicketMessage msg;
 
 	TicketMessage req;
 	req.msg_type = 10;
-	req.service_type = utente.requested_service;
+	req.service_type = service;
 	req.pid = getpid();
 
+
+	int msgid = msgget(MSG_KEY, 0666);
+	if (msgid == -1) {
+		LOG_ERR("Message get failed for [UTENTE %d]", getpid());
+		exit(EXIT_FAILURE);
+	}
+
+	LOG_INFO("[Utente %d] Requesting ticket for Service: [%s]\n", getpid(), SERVICE_NAMES[service]);
 	if (msgsnd(msgid, &req, sizeof(TicketMessage) - sizeof(long), 0) == -1) {
 		LOG_ERR("Message send failed");
 		exit(EXIT_FAILURE);
 	}
 
 
-	// int in_use = tickets->in_use;
-	while (ticket_machine->in_use == 1) {
-		sleep(1);
-	}
-
-	ticket_machine->in_use = 1;
+	wait_for_ticket_machine(ticket_machine); //wait for the ticket machine to be free
 
 
-	// Receive ticket response
-	TicketMessage msg;
 	if (msgrcv(msgid, &msg, sizeof(TicketMessage) - sizeof(long), getpid(), 0) == -1) {
+		release_ticket_machine(ticket_machine);
 		LOG_ERR("Ticket retrieval failed for [UTENTE %d]", getpid());
 		exit(EXIT_FAILURE);
 	}
 
-
 	LOG_INFO("[Utente %d] Received Ticket: %d for Service: [%s] (Estimated time: %d min)\n",
-	         getpid(), msg.ticket_number, SERVICE_NAMES[utente.requested_service], msg.estimated_time);
+	         getpid(), msg.ticket_number, SERVICE_NAMES[service], msg.estimated_time);
 
-	ticket_machine->in_use = 0; //reset the usage of the ticket machine
+	release_ticket_machine(ticket_machine);
+	unlock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
+	return msg;
+}
 
-	// add ticket to queue
-	lock_semaphore(utente.requested_service);
-
-	int pos = queue->queue_size[utente.requested_service];
-	if (pos >= MAX_CLIENT_FOR_SERVICE) {
-		LOG_ERR("[Utente %d] Queue position overflow for service %d", getpid(), utente.requested_service);
-		shmdt(queue);
-		exit(EXIT_FAILURE);
-	}
-	lock_semaphore(QUEUE_SEMAPHORE_KEY);
-	queue->ticket_queue[utente.requested_service][pos] = msg.ticket_number;
-	queue->queue_size[utente.requested_service]++;
-	queue->served[utente.requested_service][pos] = 0;
-	unlock_semaphore(QUEUE_SEMAPHORE_KEY);
-
-	unlock_semaphore(utente.requested_service);
-
-	LOG_INFO("[Utente %d] Waiting in line for Service: [%s]\n", getpid(), SERVICE_NAMES[utente.requested_service]);
-
-
-	lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
-	int next_day = sim_time->current_day + 1;
-	unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
-
-	int not_served = 0;
-	struct timespec start, end;
-	// get current time before loop
-	clock_gettime(CLOCK_MONOTONIC, &start);
-
-	while (!queue->served[utente.requested_service][pos]) {
-		//while the client is being served
-
-
-		lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
-
-		int current_day = sim_time->current_day;
-		unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
-		//if the day has ended we need to exit
-		if (current_day == next_day) {
-			//shmdt(queue);
-			//shmdt(direttore);
-			//shmdt(ticket_machine);
-			not_served = 1;
-			break;
+void wait_for_ticket_machine(TicketSystem *tm) {
+	while (1) {
+		lock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
+		if (tm->in_use == 0) {
+			tm->in_use = 1;
+			unlock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
+			return;
 		}
-	} //let the client wait till he's served
-
-	// get current time after loop
-	clock_gettime(CLOCK_MONOTONIC, &end);
-
-
-	double elapsed = (end.tv_sec - start.tv_sec) +
-	                 (end.tv_nsec - start.tv_nsec) / 1e9;
-
-	//printf("Elapsed time: %f\n", elapsed);
-	elapsed /= 60; //get it in minutes
-	//printf("Elapsed time: %f\n", elapsed);
-	lock_semaphore(STATISTIC_SEMAPHORE_KEY);
-	stats->total_waiting_time += (elapsed);
-	stats->per_service[utente.requested_service].total_waiting_time += (elapsed);
-	unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
-
-	if (not_served) {
-		LOG_INFO("[UTENTE %d] Has exited the office for lack of service.\n", getpid());
-		lock_semaphore(STATISTIC_SEMAPHORE_KEY);
-		stats->services_not_offered_total++;
-		unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
-		//detach memory
-		detach_shared_memory(queue);
-		detach_shared_memory(direttore);
-		detach_shared_memory(ticket_machine);
-		return 0;
+		unlock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
+		usleep(100000); // 100 ms
 	}
+}
 
-	LOG_INFO("[Utente %d] HAS BEEN SERVED\n", getpid());
+void release_ticket_machine(TicketSystem *tm) {
+	lock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
+	tm->in_use = 0;
+	unlock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
+}
 
-
-	shmdt(queue);
-	shmdt(direttore);
-	shmdt(ticket_machine);
-	return 0;
+void cleanup(Utente utente, void *queue, void *direttore, void *ticket_machine) {
+	free(utente.requests);
+	detach_shared_memory(queue);
+	detach_shared_memory(direttore);
+	detach_shared_memory(ticket_machine);
 }

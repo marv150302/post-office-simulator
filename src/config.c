@@ -7,6 +7,7 @@ int NOF_USERS = 0;
 int NOF_WORKER_SEATS = 0;
 int SIM_DURATION = 0;
 int N_NANO_SECS = 0;
+int N_REQUESTS = 0;
 int EXPLODE_THRESHOLD = 0;
 int NOF_PAUSE = 0;
 double P_SERV_MIN = 0.0;
@@ -14,6 +15,7 @@ double P_SERV_MAX = 0.0;
 double BREAK_PROBABILITY = 0.0;
 char SERVICE_NAMES[NUM_SERVICES][MAX_SERVICE_NAME_LEN] = {0};
 int SERVICE_TIME[NUM_SERVICES] = {0};
+
 
 void load_config(const char *filename) {
     FILE *file = fopen(filename, "r");
@@ -76,6 +78,9 @@ void load_config(const char *filename) {
     if ((val = cJSON_GetObjectItem(root, "BREAK_PROBABILITY")) && cJSON_IsNumber(val))
         BREAK_PROBABILITY = val->valueint;
 
+    if ((val = cJSON_GetObjectItem(root, "N_REQUESTS")) && cJSON_IsNumber(val))
+        N_REQUESTS = val->valueint;
+
     //load services
     load_services(root);
 
@@ -83,6 +88,47 @@ void load_config(const char *filename) {
     cJSON_Delete(root);
     free(json_data);
 
+}
+
+void load_termination_config(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Error opening termination config file");
+        return;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    rewind(file);
+
+    char *json_data = malloc(length + 1);
+    if (!json_data) {
+        perror("Memory allocation failed");
+        fclose(file);
+        return;
+    }
+
+    fread(json_data, 1, length, file);
+    json_data[length] = '\0';
+    fclose(file);
+
+    cJSON *root = cJSON_Parse(json_data);
+    if (!root) {
+        fprintf(stderr, "JSON parse error in termination config: %s\n", cJSON_GetErrorPtr());
+        free(json_data);
+        return;
+    }
+
+    cJSON *val;
+
+    if ((val = cJSON_GetObjectItem(root, "SIM_DURATION")) && cJSON_IsNumber(val))
+        SIM_DURATION = val->valueint;
+
+    if ((val = cJSON_GetObjectItem(root, "EXPLODE_THRESHOLD")) && cJSON_IsNumber(val))
+        EXPLODE_THRESHOLD = val->valueint;
+
+    cJSON_Delete(root);
+    free(json_data);
 }
 
 void load_services(cJSON *root) {

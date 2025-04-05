@@ -21,7 +21,7 @@ void lock_semaphore(int identifier) {
 		exit(EXIT_FAILURE);
 	}
 
-	struct sembuf op = {0, -1, 0}; // decrement
+	struct sembuf op = {0, -1, 0};
 
 	while (semop(semid, &op, 1) == -1) {
 		if (errno == EINTR) {

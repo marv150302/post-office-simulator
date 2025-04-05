@@ -32,6 +32,7 @@
 #define DEFAULT_NOF_WORKERS 5
 #define DEFAULT_NOF_USERS 10
 #define DEFAULT_NOF_WORKER_SEATS 3
+#define DEFAULT_N_REQUESTS 5
 #define DEFAULT_SIM_DURATION 3
 #define DEFAULT_BREAK_PROBABILITY 10
 #define DEFAULT_N_NANO_SECS 20
@@ -39,6 +40,7 @@
 #define DEFAULT_P_SERV_MAX 0.8
 #define DEFAULT_EXPLODE_THRESHOLD 50
 #define DEFAULT_NOF_PAUSE 2
+
 
 
 #define MAX_CLIENTS 600
@@ -91,6 +93,7 @@ void sleep_sim_minutes(double sim_minutes);
 extern int NOF_WORKERS;
 extern int NOF_USERS;
 extern int NOF_WORKER_SEATS;
+extern int N_REQUESTS;
 extern int SIM_DURATION;
 extern int N_NANO_SECS;
 extern int EXPLODE_THRESHOLD;
@@ -107,4 +110,5 @@ extern int SERVICE_TIME[NUM_SERVICES];
 void load_config(const char *filename);
 void load_services(cJSON *root);
 void sleep_sim_minutes(double sim_minutes);
+void load_termination_config(const char *filename);
 #endif // CONFIG_H

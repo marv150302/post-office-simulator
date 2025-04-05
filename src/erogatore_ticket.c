@@ -10,6 +10,8 @@
 #include <time.h>
 #include <signal.h>
 
+#include "semaphore_utils.h"
+
 
 volatile sig_atomic_t running = 1;
 
@@ -73,6 +75,9 @@ int main() {
 			exit(EXIT_FAILURE);
 		}
 
+		lock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
+		tickets->nof_clients_waiting++;
+		unlock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
 		LOG_INFO("[Erogatore] Issued ticket %d for Service: [%s] (Estimated time: %d min)\n",
 		         ticket_number, SERVICE_NAMES[service_type], estimated_time);
 

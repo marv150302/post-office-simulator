@@ -19,5 +19,9 @@ typedef struct  {
 
 
 void free_counter(SportelloStatus *sportello, Operatore* operatore,  int sportello_index, int operatore_index);
-void take_break(Operatore *operatore, int index);
+void take_break(Operatore *operatore, int operatore_index, SportelloStatus *sportello, int sportello_index, Stats *stats, WaitingQueue *queue);
+void find_sportello(Operatore *operator , SportelloStatus *sportello, int *sportello_index, int operatore_index, Stats* stats);
+
+void serve_client(SportelloStatus *sportello, Operatore *operator, int sportello_index, int operatore_index,
+                  int service_type, Stats *stats, WaitingQueue *queue);
 #endif //OPERATORE_H

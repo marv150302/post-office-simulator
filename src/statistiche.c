@@ -83,6 +83,63 @@ void print_daily_stats(Stats *stats, int current_day, FILE *output) {
 
     fprintf(output, "\n===========================================\n\n");
 
-    stats->active_operators_today = 0;
-	stats->breaks_today = 0;
+
+
+
+}
+
+void write_statistics_to_file(Stats *stats) {
+
+  // === CSV Logging (column-oriented) ===
+    FILE *csv = fopen("./csv_logs/statistiche.csv", "a");
+    if (csv) {
+        static int csv_header_written = 0;
+
+        if (!csv_header_written && ftell(csv) == 0) {
+            fprintf(csv, "Day,TotalClientsServed,TotalServicesOffered,ServicesNotOffered,");
+            fprintf(csv, "AvgClientWaitTime,AvgServiceTime,ActiveOperatorsToday,TotalActiveOperators,BreaksToday,BreaksTotal,");
+
+            // Sportello headers
+            for (int i = 0; i < MAX_SPORTELLI; ++i) {
+                fprintf(csv, "Sportello%d_Ratio,", i);
+            }
+
+            // Per-service stats
+            for (int i = 0; i < NUM_SERVICES; ++i) {
+                fprintf(csv, "%s_Served,%s_AvgWait,%s_AvgService,", SERVICE_NAMES[i], SERVICE_NAMES[i], SERVICE_NAMES[i]);
+            }
+
+            fprintf(csv, "\n");
+            csv_header_written = 1;
+        }
+
+        // Write values
+        fprintf(csv, "%d,%d,%d,", stats->served_clients_total, stats->services_offered_total, stats->services_not_offered_total);
+
+        double avg_wait = stats->served_clients_total > 0 ? stats->total_waiting_time / stats->served_clients_total : 0.0;
+        double avg_service = stats->served_clients_total > 0 ? stats->total_serving_time / stats->served_clients_total : 0.0;
+
+        fprintf(csv, "%.2f,%.2f,", avg_wait, avg_service);
+        fprintf(csv, "%d,%d,%d,%d,", stats->active_operators_today, stats->active_operators_total,
+                stats->breaks_today, stats->breaks_total);
+
+        // Sportello data
+        for (int i = 0; i < MAX_SPORTELLI; ++i) {
+            fprintf(csv, "%.2f,", stats->operator_to_sportello_ratio_today[i]);
+        }
+
+        // Per-service data
+        for (int i = 0; i < NUM_SERVICES; ++i) {
+            const StatisticByService *svc = &stats->per_service[i];
+            double svc_wait = svc->served_clients_total > 0 ? svc->total_waiting_time / svc->served_clients_total : 0.0;
+            double svc_serv = svc->served_clients_total > 0 ? svc->total_serving_time / svc->served_clients_total : 0.0;
+
+            fprintf(csv, "%d,%.2f,%.2f,", svc->served_clients_total, svc_wait, svc_serv);
+        }
+
+        fprintf(csv, "\n");
+        fclose(csv);
+    } else {
+        perror("Failed to open statistics CSV file");
+    }
 }

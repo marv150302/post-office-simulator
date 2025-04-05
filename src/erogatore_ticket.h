@@ -20,6 +20,7 @@ typedef struct {
 
     int ticket_number[NUM_SERVICES];  // Ticket counters per service
     int in_use; // to allow one user at once to use the machine
+    int nof_clients_waiting;
 } TicketSystem;
 
 #endif //EROGATORE_TICKET_H

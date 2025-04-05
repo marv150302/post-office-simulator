@@ -10,14 +10,13 @@ BUILD_DIR = build
 BIN_DIR = bin
 
 # Executable names
-TARGETS = $(BIN_DIR)/direttore $(BIN_DIR)/erogatore_ticket $(BIN_DIR)/operatore $(BIN_DIR)/utente $(BIN_DIR)/sportello
-
+TARGETS = $(BIN_DIR)/direttore $(BIN_DIR)/erogatore_ticket $(BIN_DIR)/operatore $(BIN_DIR)/utente $(BIN_DIR)/sportello $(BIN_DIR)/add_users
 # cJSON source and object
 CJSON_SRC = libs/cJSON/cJSON.c
 CJSON_OBJ = $(BUILD_DIR)/cJSON.o
 
 # Common source files (shared across executables)
-COMMON_SRCS = $(SRC_DIR)/memory_handler.c $(SRC_DIR)/config.c $(SRC_DIR)/semaphore_utils.c $(SRC_DIR)/shared_time.c $(SRC_DIR)/statistiche.c
+COMMON_SRCS = $(SRC_DIR)/memory_handler.c $(SRC_DIR)/config.c $(SRC_DIR)/semaphore_utils.c $(SRC_DIR)/shared_time.c $(SRC_DIR)/statistiche.c $(SRC_DIR)/process_utils.c
 COMMON_OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(COMMON_SRCS))
 
 # Source files for each executable
@@ -26,6 +25,8 @@ SRCS_erogatore = $(SRC_DIR)/erogatore_ticket.c $(COMMON_SRCS)
 SRCS_operatore = $(SRC_DIR)/operatore.c $(COMMON_SRCS)
 SRCS_utente = $(SRC_DIR)/utente.c $(COMMON_SRCS)
 SRCS_sportello = $(SRC_DIR)/sportello.c $(COMMON_SRCS)
+SRCS_add_users = $(SRC_DIR)/add_users.c $(COMMON_SRCS)
+
 
 # Object files for each executable
 OBJS_direttore = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS_direttore)) $(CJSON_OBJ)
@@ -33,6 +34,7 @@ OBJS_erogatore = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS_erogatore))
 OBJS_operatore = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS_operatore)) $(CJSON_OBJ)
 OBJS_utente = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS_utente)) $(CJSON_OBJ)
 OBJS_sportello = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS_sportello)) $(CJSON_OBJ)
+OBJS_add_users = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS_add_users)) $(CJSON_OBJ)
 
 # Default rule: Build all executables
 all: $(TARGETS)
@@ -53,6 +55,9 @@ $(BIN_DIR)/utente: $(OBJS_utente) | $(BIN_DIR)
 $(BIN_DIR)/sportello: $(OBJS_sportello) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $(OBJS_sportello) -o $@
 
+$(BIN_DIR)/add_users: $(OBJS_add_users) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $(OBJS_add_users) -o $@
+
 # Rule to compile source files into object files
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -60,6 +65,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 # Rule for compiling cJSON object file
 $(BUILD_DIR)/cJSON.o: $(CJSON_SRC) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
+
 
 # Create build and bin directories if needed
 $(BUILD_DIR):
