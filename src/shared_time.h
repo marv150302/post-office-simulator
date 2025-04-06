@@ -6,8 +6,7 @@
 #ifndef SHARED_TIME_H
 #define SHARED_TIME_H
 
-#include "config.h"  // for SIM_TIME_KEY or define the key here
-#define SHARED_TIME_KEY 1543 // simulation shared time memory key
+#include "config.h"
 typedef struct {
 	int current_day;
 	int current_hour;

@@ -37,6 +37,6 @@ void generate_appointment(Utente *utente, int min_hour, int max_hour);
 void wait_until_appointment(Utente *utente);
 
 void handle_service_requests(Utente utente, WaitingQueue *queue, TicketSystem *ticket_machine,
-							Stats *stats, int next_day, Direttore* direttore); //function to handle service requets
+							Stats *stats, int next_day); //function to handle service requets
 void cleanup(Utente utente, void *queue, void *direttore, void *ticket_machine);
 #endif //UTENTE_H

@@ -6,10 +6,9 @@
 #define SPORTELLO_H
 #include "config.h"
 
-#define SPORTELLO_SHM_KEY 7891 // counter's shared memory key
 // Structure for sportelli (counters)
 typedef struct {
-    int service_type[MAX_SPORTELLI]; // Each counter is assigned to a specific service
+    int service_type[MAX_SPORTELLI]; // each counter is assigned to a specific service
     int available[MAX_SPORTELLI];    // 1 = available, 0 = occupied
     int assigned_operator[MAX_SPORTELLI];
     int ready[MAX_SPORTELLI];

@@ -42,8 +42,6 @@ int main(int argc, char *argv[]) {
 
 
 	if (argc == 3 && strcmp(argv[2], "--from-direttore") == 0) {
-
-
 		LOG_WARN("Client Launched by direttore");
 	} else {
 		LOG_WARN("Client Launched manually from terminal");
@@ -61,7 +59,7 @@ int main(int argc, char *argv[]) {
 	int shmid_queue = get_shared_memory(QUEUE_SHM_KEY, "WaitingQueue");
 	WaitingQueue *queue = (WaitingQueue *) attach_shared_memory(shmid_queue, "WaitingQueue");
 
-	int shmid_erogatore = get_shared_memory(SHM_KEY, "Erogatore");
+	int shmid_erogatore = get_shared_memory(TICKET_EROGATOR_SHM_KEY, "Erogatore");
 	TicketSystem *ticket_machine = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
 	int shmid_sportello = get_shared_memory(SPORTELLO_SHM_KEY, "Sportello");
@@ -122,15 +120,15 @@ int main(int argc, char *argv[]) {
 	int next_day = sim_time->current_day + 1;
 	unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
 
-	handle_service_requests(utente, queue, ticket_machine, stats, next_day,direttore);
+	handle_service_requests(utente, queue, ticket_machine, stats, next_day);
 
+	cleanup(utente, queue, ticket_machine, stats);
 	return 0;
 }
 
 
 void handle_service_requests(Utente utente, WaitingQueue *queue, TicketSystem *ticket_machine,
-							 Stats *stats, int next_day, Direttore* direttore) {
-
+                             Stats *stats, int next_day) {
 	for (int i = 0; i < utente.N_REQUEST && running; i++) {
 		int requested_service = utente.requests[i];
 
@@ -170,7 +168,7 @@ void handle_service_requests(Utente utente, WaitingQueue *queue, TicketSystem *t
 				stats->services_not_offered_total++;
 				unlock_semaphore(STATISTIC_SEMAPHORE_KEY);
 				running = 0;
-				cleanup(utente, queue, direttore, ticket_machine);
+				//cleanup(utente, queue, direttore, ticket_machine);
 				return;
 			}
 			usleep(100000);
@@ -181,7 +179,7 @@ void handle_service_requests(Utente utente, WaitingQueue *queue, TicketSystem *t
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		double elapsed = (end.tv_sec - start.tv_sec) +
-						 (end.tv_nsec - start.tv_nsec) / 1e9;
+		                 (end.tv_nsec - start.tv_nsec) / 1e9;
 		elapsed /= 60;
 
 		lock_semaphore(STATISTIC_SEMAPHORE_KEY);
@@ -194,7 +192,7 @@ void handle_service_requests(Utente utente, WaitingQueue *queue, TicketSystem *t
 		unlock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
 	}
 
-	cleanup(utente, queue, direttore, ticket_machine);
+	//cleanup(utente, queue, direttore, ticket_machine);
 }
 
 bool should_stay_home() {
@@ -233,20 +231,32 @@ void generate_appointment(Utente *utente, int min_hour, int max_hour) {
 }
 
 void wait_until_appointment(Utente *utente) {
+
+
+	lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
+	int current_day = sim_time->current_day;
+	int next_day = current_day + 1;
+	unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
 	//wait for your appointment
 	do {
 		lock_semaphore(SIM_TIME_SEMAPHORE_KEY);
 		int hour = sim_time->current_hour;
 		int minute = sim_time->current_minute;
+		current_day = sim_time->current_day;
 		unlock_semaphore(SIM_TIME_SEMAPHORE_KEY);
 
+		if (current_day >= next_day) {
+			running = 0;
+
+			break;
+		}
 		if (hour < utente->arrival_hour ||
 		    (hour == utente->arrival_hour && minute < utente->arrival_minute)) {
 			sleep(1);
 		} else {
 			break;
 		}
-	} while (1);
+	} while (running);
 }
 
 TicketMessage get_ticket(int service, TicketSystem *ticket_machine) {
@@ -289,7 +299,7 @@ TicketMessage get_ticket(int service, TicketSystem *ticket_machine) {
 }
 
 void wait_for_ticket_machine(TicketSystem *tm) {
-	while (1) {
+	while (running) {
 		lock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
 		if (tm->in_use == 0) {
 			tm->in_use = 1;
@@ -308,7 +318,10 @@ void release_ticket_machine(TicketSystem *tm) {
 }
 
 void cleanup(Utente utente, void *queue, void *direttore, void *ticket_machine) {
-	free(utente.requests);
+
+
+
+	if (utente.requests!=NULL)free(utente.requests);
 	detach_shared_memory(queue);
 	detach_shared_memory(direttore);
 	detach_shared_memory(ticket_machine);

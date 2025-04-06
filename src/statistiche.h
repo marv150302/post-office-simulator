@@ -2,7 +2,6 @@
 #define STATISTICHE_H
 
 #include "config.h"
-#define  STATISTIC_SHM_KEY 4400
 
 
 typedef struct {

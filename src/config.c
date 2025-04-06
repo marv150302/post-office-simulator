@@ -137,7 +137,7 @@ void load_services(cJSON *root) {
     if (services && cJSON_IsArray(services)) {
         int count = cJSON_GetArraySize(services);
         if (count != NUM_SERVICES) {
-            fprintf(stderr, "Warning: Expected %d services but got %d.\n", NUM_SERVICES, count);
+            fprintf(stderr, "Expected %d services but got %d.\n", NUM_SERVICES, count);
         }
         for (int i = 0; i < count && i < NUM_SERVICES; ++i) {
             cJSON *service = cJSON_GetArrayItem(services, i);

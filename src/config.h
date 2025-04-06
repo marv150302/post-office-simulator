@@ -8,9 +8,10 @@
 #include <sys/shm.h>
 #include <sys/msg.h>
 #include <unistd.h>
-
+#include "keys/semaphore_keys.h"
 #include <time.h>
 #include "shared_time.h"
+#include "keys/shared_memory_keys.h"
 #include "../libs/cJSON/cJSON.h"
 
 
@@ -20,15 +21,12 @@
 #define NUM_SERVICES 6 // number of services provided
 #define MAX_SPORTELLI 5 // maximum number of counters
 
-
-#define SHM_KEY 1234  // shared Memory Key
-#define MSG_KEY 5678  // message Queue Key
-
-#define QUEUE_SHM_KEY 6789 // shared memory key for waiting queue
-#define SEM_KEY_BASE 9000 // semaphore key
+#define MAX_CLIENTS 600
+#define MAX_CLIENT_FOR_SERVICE 100
+#define MAX_SERVICE_NAME_LEN 64 //the max length of each service name
 
 
-// Default values (used only if config file is missing)
+// default values (used only if config file is missing)
 #define DEFAULT_NOF_WORKERS 5
 #define DEFAULT_NOF_USERS 10
 #define DEFAULT_NOF_WORKER_SEATS 3
@@ -43,24 +41,7 @@
 
 
 
-#define MAX_CLIENTS 600
-#define MAX_CLIENT_FOR_SERVICE 100
-
-#define MAX_SERVICE_NAME_LEN 64 //the max length of each service name
-
-#define DIRETTORE_SEMAPHORE_KEY 100
-#define OPERATORE_SEMAPHORE_KEY 200
-#define SPORTELLO_SEMAPHORE_KEY 300
-#define QUEUE_SEMAPHORE_KEY 400
-#define SIM_TIME_SEMAPHORE_KEY 500
-#define STATISTIC_SEMAPHORE_KEY 900
-#define TICKET_EROGATOR_SEMAPHORE_KEY 700
-
-#define SIM_TIME_FMT "[Day %02d - %02d:%02d] "
-#define SIM_TIME_ARGS(i) ((i) / (24 * 60) + 1), (((i) / 60) % 24), ((i) % 60)
-
-
-// Terminal color codes
+// terminal color codes
 #define COLOR_RESET   "\033[0m"
 #define COLOR_RED     "\033[1;31m"
 #define COLOR_GREEN   "\033[1;32m"
@@ -79,11 +60,11 @@ sim_time->current_day, sim_time->current_hour, sim_time->current_minute, ##__VA_
 fprintf(stderr, COLOR_RED "[ERROR] [Day %02d - %02d:%02d] " fmt COLOR_RESET "\n", \
 sim_time->current_day, sim_time->current_hour, sim_time->current_minute, ##__VA_ARGS__)
 
-// structure for user queue
+// for user queue
 typedef struct {
 
-    int ticket_queue[NUM_SERVICES][MAX_CLIENT_FOR_SERVICE]; // Queue for each service (max 10 users per service)
-    int queue_size[NUM_SERVICES]; // Number of users waiting per service
+    int ticket_queue[NUM_SERVICES][MAX_CLIENT_FOR_SERVICE]; // queue for each service (max 10 users per service)
+    int queue_size[NUM_SERVICES]; // number of users waiting per service
     int served[NUM_SERVICES][MAX_CLIENT_FOR_SERVICE]; //used to track wether a client has been served
 } WaitingQueue;
 

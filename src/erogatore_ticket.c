@@ -26,8 +26,8 @@ int main() {
 	load_config("config/config.json");
 	signal(SIGTERM, handle_sigterm);
 
-	// Create and attach shared memory for ticket system
-	int shmid_erogatore = get_shared_memory(SHM_KEY, "Erogatore");
+	// create and attach shared memory for ticket system
+	int shmid_erogatore = get_shared_memory(TICKET_EROGATOR_SHM_KEY, "Erogatore");
 	TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
 	srand(time(NULL) ^ getpid());
@@ -46,7 +46,7 @@ int main() {
 	LOG_INFO("[Erogatore] Ticket system initialized. Waiting for user requests...\n");
 
 	while (running) {
-		// Wait for a user request
+		// wait for a user request
 		TicketMessage request;
 		if (msgrcv(msgid, &request, sizeof(TicketMessage) - sizeof(long), 10, 0) == -1) {
 			LOG_ERR("Message receive failed\n");
@@ -62,7 +62,7 @@ int main() {
 		int estimated_time = base_time + variation;
 		if (estimated_time < 1) estimated_time = 1;
 
-		// Create and send ticket message
+		// vreate and send ticket message
 		TicketMessage msg = {0};
 		msg.ticket_number = ticket_number;
 		msg.estimated_time = estimated_time;

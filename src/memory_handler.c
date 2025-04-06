@@ -11,7 +11,7 @@
 #include "memory_handler.h"
 #include "config.h"  // Include your logging macros if not globally included
 
-// Function to create shared memory and return shmid
+// function to create shared memory and return shmid
 int create_shared_memory(key_t key, size_t size, const char *name) {
 
 
@@ -28,7 +28,7 @@ int create_shared_memory(key_t key, size_t size, const char *name) {
     return shm_id;
 }
 
-// Function to attach shared memory and return pointer
+// function to attach shared memory and return pointer
 void* attach_shared_memory(int shmid, const char *name) {
     void *shm_ptr = shmat(shmid, NULL, 0);
     if (shm_ptr == (void *)-1) {
@@ -40,7 +40,7 @@ void* attach_shared_memory(int shmid, const char *name) {
     return shm_ptr;
 }
 
-// Function to detach shared memory
+// function to detach shared memory
 void detach_shared_memory(void *shm_ptr) {
     if (shmdt(shm_ptr) == -1) {
         LOG_ERR("Shared memory detach failed");
@@ -49,7 +49,7 @@ void detach_shared_memory(void *shm_ptr) {
     }
 }
 
-// Function to remove shared memory
+// function to remove shared memory
 void remove_shared_memory(int shmid) {
     if (shmctl(shmid, IPC_RMID, NULL) == -1) {
         LOG_ERR("Shared memory remove failed");

@@ -8,10 +8,10 @@
 #include <sys/sem.h>
 #include "config.h"
 
-// Lock (P operation)
+// lock semaphore
 void lock_semaphore(int service_type);
 
-// Unlock (V operation)
+// unlock semaphore
 void unlock_semaphore(int service_type);
 
 void initialize_semaphores(int service_type);

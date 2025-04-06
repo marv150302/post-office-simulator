@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 	//int shmid_queu = create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "WaitingQueue");
 	//WaitingQueue *queue = (WaitingQueue *) attach_shared_memory(shmid_queu, "WaitingQueue");
 
-	//int shmid_erogatore = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+	//int shmid_erogatore = create_shared_memory(TICKET_EROGATOR_SHM_KEY, sizeof(TicketSystem), "Erogatore");
 	//TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
 	int shmid_stats = get_shared_memory(STATISTIC_SHM_KEY, "Statistics");

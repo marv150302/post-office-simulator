@@ -20,13 +20,12 @@ pid_t start_process(const char *name, const char *path, int arg, Direttore* dire
 	}
 
 	lock_semaphore(DIRETTORE_SEMAPHORE_KEY);
-	// Save PID
+	// save PID
 	if (direttore->child_proc_count < MAX_CHILDREN) {
 
 		direttore->child_pids[direttore->child_proc_count++] = pid;
 
 	}
 	unlock_semaphore(DIRETTORE_SEMAPHORE_KEY);
-
 	return pid;
 }

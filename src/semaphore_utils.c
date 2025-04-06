@@ -6,13 +6,14 @@
 #include <sys/ipc.h>
 #include <sys/sem.h>
 
-// Common helper for key
+
 static int get_semaphore_key(int identifier) {
 
 	return SEM_KEY_BASE + identifier;
 }
 
 void lock_semaphore(int identifier) {
+
 	int key = get_semaphore_key(identifier);
 	int semid = semget(key, 1, 0666);
 	if (semid == -1) {

@@ -8,7 +8,7 @@
 #include "config.h"
 #include "sportello.h"
 
-#define OPERATORS_SHM_KEY 1503
+
 typedef struct  {
 
   int *breaks_taken;

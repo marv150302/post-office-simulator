@@ -16,6 +16,7 @@ typedef struct {
 	int child_proc_count; //number of child processes
 	int operator_count; //number of operators
 	int client_count; //number of clients
+	int killed_added_users;
 } Direttore;
 
 typedef enum {

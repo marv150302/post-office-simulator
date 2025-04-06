@@ -40,13 +40,14 @@ int main() {
 	direttore->child_proc_count = 0;
 	direttore->client_count = 0;
 	direttore->operator_count = 0;
+	direttore->killed_added_users = 0;
 
 
 	int shmid_operator = create_shared_memory(OPERATORS_SHM_KEY, sizeof(Operatore), "Operatore");
 	Operatore *operator = (Operatore *) attach_shared_memory(shmid_operator, "Operatore");
 	operator->n_op_on_break = 0;
 
-	int shmid_ticket = create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+	int shmid_ticket = create_shared_memory(TICKET_EROGATOR_SHM_KEY, sizeof(TicketSystem), "Erogatore");
 	TicketSystem* ticket_machine = (TicketSystem *) attach_shared_memory(shmid_ticket, "Erogatore");
 
 	int shmid_sportello = create_shared_memory(SPORTELLO_SHM_KEY, sizeof(SportelloStatus), "Sportello");
@@ -73,7 +74,7 @@ int main() {
 
 	int total_minutes = SIM_DURATION * 12 * 60;
 
-	// Keep track of the current simulation day
+	// keep track of the current simulation day
 	int current_day = 1;
 
 	for (int i = 0; i < total_minutes; ++i) {
@@ -112,7 +113,7 @@ int main() {
 
 
 			clean_shared_memory(QUEUE_SHM_KEY, "Queue");
-			clean_shared_memory(SHM_KEY, "Erogatore");
+			clean_shared_memory(TICKET_EROGATOR_SHM_KEY, "Erogatore");
 			current_day++;
 			sim_time->current_day = current_day;
 			sim_time->current_hour = OPENING_HOUR;
@@ -127,14 +128,16 @@ int main() {
 
 			lock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
 			if (ticket_machine->nof_clients_waiting > EXPLODE_THRESHOLD) {
+
 				LOG_ERR("Simulation terminated: explode threshold exceeded (waiting users: %d)", ticket_machine->nof_clients_waiting);
 				cause_of_termination = TERMINATION_EXPLODE;
+				kill_all_processes(direttore);
 				break;
 			}
 			unlock_semaphore(TICKET_EROGATOR_SEMAPHORE_KEY);
 
 			if (current_day <= SIM_DURATION) {
-				create_shared_memory(SHM_KEY, sizeof(TicketSystem), "Erogatore");
+				create_shared_memory(TICKET_EROGATOR_SHM_KEY, sizeof(TicketSystem), "Erogatore");
 				create_shared_memory(QUEUE_SHM_KEY, sizeof(WaitingQueue), "Queue");
 				LOG_WARN("========== SIMULATION DAY %d STARTED ==========\n", current_day);
 
@@ -147,6 +150,7 @@ int main() {
 
 				LOG_WARN("Simulation terminated: reached maximum simulation duration of %d days", SIM_DURATION);
 				cause_of_termination = TERMINATION_TIMEOUT;
+				//kill_all_processes(direttore);
 				break;
 			}
 		}
@@ -171,7 +175,7 @@ int main() {
 	}
 
 
-	while (wait(NULL) > 0);
+	while (wait(NULL) > 0 && direttore->killed_added_users);
 	LOG_WARN("All processes terminated. Simulation finished\n");
 
 	clean_shared_memory(STATISTIC_SHM_KEY, "STATISTIC");
@@ -197,7 +201,7 @@ void start_all_processes(Direttore *direttore) {
 	int shmid_sportello = get_shared_memory(SPORTELLO_SHM_KEY, "Sportello");
 	SportelloStatus *sportello = (SportelloStatus *) attach_shared_memory(shmid_sportello, "Sportello");
 
-	int shmid_erogatore = get_shared_memory(SHM_KEY, "Erogatore");
+	int shmid_erogatore = get_shared_memory(TICKET_EROGATOR_SHM_KEY, "Erogatore");
 	TicketSystem *tickets = (TicketSystem *) attach_shared_memory(shmid_erogatore, "Erogatore");
 
 
@@ -260,8 +264,12 @@ void kill_all_processes(Direttore *direttore) {
 	for (int child_index = 0; child_index < direttore->child_proc_count; child_index++) {
 		kill(direttore->child_pids[child_index], SIGTERM);
 	}
-	direttore->child_proc_count = 0;
-	while (wait(NULL) > 0);
+	//direttore->child_proc_count = 0;
+	//while (wait(NULL) > 0);
+
+	while (!direttore->killed_added_users);
+
+	//while (wait(NULL) > 0);
 }
 
 void cleanup_all_semaphores(void) {
