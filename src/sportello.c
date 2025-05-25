@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
 
 	int service = rand() % NUM_SERVICES;
 
-	// Step 1: Check if the service is already assigned in another sportello
+	
 	int service_already_running = 0;
 	lock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 	for (int i = 0; i < NOF_WORKER_SEATS; i++) {
@@ -63,14 +63,14 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	// Step 2: Assign the service to the sportello
+
 	sportello->service_type[sportello_index] = service;
 	sportello->available[sportello_index] = 1;
 	sportello->assigned_operator[sportello_index] = -1;
 	sportello->ready[sportello_index] = 1;
 	unlock_semaphore(SPORTELLO_SEMAPHORE_KEY);
 
-	// Step 3: Update statistics if this is a new service for the day
+
 	if (!service_already_running) {
 		lock_semaphore(STATISTIC_SEMAPHORE_KEY);
 		stats->services_offered_total++;
