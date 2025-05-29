@@ -20,7 +20,7 @@ This project was developed as part of the Operating Systems course assignment at
 
 ---
 
-### 🚀 5. **How to Run**
+### **How to Run**
 
 ```markdown
 ## Running the Simulation
@@ -41,7 +41,7 @@ This project was developed as part of the Operating Systems course assignment at
 
 ---
 
-### ⚙️ 6. **Configuration**
+### **Configuration**
 Describe the config file and how parameters affect the simulation.
 
 ```markdown
